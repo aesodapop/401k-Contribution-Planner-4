@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>401(k) Contribution Planner</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:#0f1e35;--navy-mid:#1a2f4a;--navy-light:#243d5e;
+    --gold:#c9a84c;--gold-light:#e8c96a;--gold-pale:#fdf6e3;
+    --cream:#faf8f4;--text:#1a1a2e;--muted:#6b7a8d;
+    --green:#2a7a5c;--green-light:#e8f5ef;--red:#c0392b;
+    --border:#dde3ec;--shadow:0 4px 24px rgba(15,30,53,0.10);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;}
+  header{background:var(--navy);color:white;padding:26px 40px 22px;display:flex;align-items:flex-end;gap:18px;border-bottom:3px solid var(--gold);}
+  header h1{font-family:'DM Serif Display',serif;font-size:2rem;line-height:1;letter-spacing:-0.5px;}
+  header h1 span{color:var(--gold);}
+  .limits-bar{background:var(--navy-mid);color:#a8bcd0;font-size:0.74rem;padding:8px 40px;display:flex;gap:24px;flex-wrap:wrap;}
+  .limits-bar strong{color:var(--gold-light);}
+  .layout{display:grid;grid-template-columns:390px 1fr;gap:0;min-height:calc(100vh - 128px);}
+  .panel-left{background:white;border-right:1px solid var(--border);padding:26px 26px 44px;overflow-y:auto;}
+  .section-title{font-family:'DM Serif Display',serif;font-size:1rem;color:var(--navy);margin-bottom:13px;padding-bottom:6px;border-bottom:2px solid var(--gold);display:flex;align-items:center;gap:7px;}
+  .form-group{margin-bottom:13px;}
+  label{display:block;font-size:0.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:5px;}
+  input[type=number]{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:0.92rem;color:var(--text);background:var(--cream);transition:border-color 0.2s;outline:none;-moz-appearance:textfield;}
+  input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+  input[type=number]:focus{border-color:var(--gold);background:white;}
+  input.ro{background:#f2f4f7;color:#aaa;cursor:default;}
+  .input-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .hint{font-size:0.71rem;color:var(--muted);margin-top:4px;line-height:1.4;}
+  .pp-banner{background:var(--navy);color:white;border-radius:8px;padding:10px 14px;margin-bottom:13px;display:flex;justify-content:space-between;align-items:center;font-size:0.82rem;}
+  .pp-banner span{opacity:0.65;}
+  .pp-banner strong{color:var(--gold-light);font-size:1rem;}
+  .goal-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+  .goal-btn{padding:9px 6px;border:1.5px solid var(--border);border-radius:8px;background:white;font-family:'DM Sans',sans-serif;font-size:0.75rem;font-weight:500;color:var(--muted);cursor:pointer;text-align:center;transition:all 0.18s;line-height:1.35;}
+  .goal-btn:hover{border-color:var(--gold);color:var(--navy);background:var(--gold-pale);}
+  .goal-btn.active{border-color:var(--gold);background:var(--gold-pale);color:var(--navy);font-weight:600;}
+  .cu-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;font-size:0.72rem;font-weight:600;margin-top:8px;margin-bottom:4px;}
+  .super-b{background:#fdf0ff;color:#7b2d8b;border:1px solid #d4a8e0;}
+  .catch-b{background:var(--green-light);color:var(--green);border:1px solid #a8d8c4;}
+  .none-b{background:#f0f2f5;color:#999;border:1px solid #dde3ec;}
+  .calc-btn{width:100%;padding:13px;background:var(--navy);color:white;border:2px solid var(--navy);border-radius:9px;font-family:'DM Serif Display',serif;font-size:1.05rem;letter-spacing:0.3px;cursor:pointer;margin-top:20px;transition:all 0.2s;}
+  .calc-btn:hover{background:var(--navy-light);border-color:var(--gold);}
+  .sec-gap{margin-top:22px;}
+  .ytd-note{font-size:0.71rem;color:var(--muted);margin-bottom:10px;line-height:1.45;}
+  .panel-right{padding:28px 32px 52px;overflow-y:auto;background:var(--cream);}
+  .placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:420px;color:var(--muted);text-align:center;gap:14px;}
+  .placeholder .ico{font-size:3.5rem;opacity:0.22;}
+  .placeholder p{font-size:0.88rem;max-width:300px;line-height:1.65;}
+  .placeholder ul{font-size:0.82rem;text-align:left;line-height:2.1;list-style:none;}
+  .placeholder ul li::before{content:"→ ";color:var(--gold);font-weight:700;}
+  .res-header{display:flex;align-items:baseline;gap:14px;margin-bottom:20px;}
+  .res-header h2{font-family:'DM Serif Display',serif;font-size:1.55rem;color:var(--navy);}
+  .alert{padding:11px 15px;border-radius:8px;font-size:0.81rem;margin-bottom:12px;line-height:1.55;}
+  .a-warn{background:#fff8e1;border-left:4px solid var(--gold);color:#7a5c00;}
+  .a-super{background:#fdf0ff;border-left:4px solid #9b59b6;color:#5b2270;}
+  .rec-box{background:white;border:1px solid var(--border);border-radius:12px;padding:20px 22px;margin-bottom:22px;box-shadow:var(--shadow);}
+  .rec-box h3{font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--navy);margin-bottom:14px;}
+  .pills{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
+  .pill{padding:7px 15px;border-radius:99px;font-size:0.82rem;font-weight:600;border:1.5px solid;}
+  .p-blue{background:#edf4fb;color:#2c5f8a;border-color:#9cbedd;}
+  .p-green{background:#ecfdf5;color:#065f46;border-color:#6ee7b7;}
+  .p-purple{background:#faf5ff;color:#6b21a8;border-color:#d8b4fe;}
+  .p-gold{background:var(--gold-pale);color:#7a5000;border-color:var(--gold);}
+  .rec-note{font-size:0.8rem;color:var(--muted);line-height:1.65;}
+  .lim-sec{margin-bottom:22px;}
+  .lim-row{margin-bottom:16px;}
+  .lim-sub{margin-bottom:11px;padding-left:12px;border-left:3px solid var(--border);}
+  .lim-info{display:flex;justify-content:space-between;font-size:0.77rem;margin-bottom:5px;}
+  .lim-info .ln{font-weight:600;color:var(--navy);}
+  .lim-info .lv{color:var(--muted);}
+  .lim-info-sub{display:flex;justify-content:space-between;font-size:0.73rem;margin-bottom:4px;}
+  .lim-info-sub .ln{font-weight:600;color:var(--muted);}
+  .lim-info-sub .lv{color:var(--muted);}
+  .prog-track{height:9px;background:var(--border);border-radius:99px;overflow:hidden;}
+  .prog-fill{height:100%;border-radius:99px;transition:width 0.7s cubic-bezier(.4,0,.2,1);}
+  .f-blue{background:linear-gradient(90deg,#2c5f8a,#3a82c4);}
+  .f-red{background:linear-gradient(90deg,#c0392b,#e74c3c);}
+  .f-gold{background:linear-gradient(90deg,#c9a84c,#e8c96a);}
+  .f-green{background:linear-gradient(90deg,#2a7a5c,#3abf8c);}
+  .f-purple{background:linear-gradient(90deg,#7b2d8b,#b060cc);}
+  .f-darkred{background:linear-gradient(90deg,#c0392b,#e74c3c);}
+  /* Split bars */
+  .prog-track-split{height:9px;background:var(--border);border-radius:99px;overflow:hidden;display:flex;}
+  .seg-pretax   {height:100%;background:linear-gradient(90deg,#1e40af,#3b82f6);transition:width 0.7s;}
+  .seg-pretax-cu{height:100%;background:repeating-linear-gradient(60deg,#3b82f6,#3b82f6 3px,#bfdbfe 3px,#bfdbfe 6px);transition:width 0.7s;}
+  .seg-roth     {height:100%;background:linear-gradient(90deg,#065f46,#10b981);transition:width 0.7s;}
+  .seg-roth-cu  {height:100%;background:repeating-linear-gradient(60deg,#10b981,#10b981 3px,#a7f3d0 3px,#a7f3d0 6px);transition:width 0.7s;}
+  .seg-match    {height:100%;background:linear-gradient(90deg,#c9a84c,#e8c96a);transition:width 0.7s;}
+  .seg-trueup   {height:100%;background:repeating-linear-gradient(60deg,#e8c96a,#e8c96a 3px,#fff8dc 3px,#fff8dc 6px);transition:width 0.7s;}
+  .seg-at       {height:100%;background:linear-gradient(90deg,#6b21a8,#a855f7);transition:width 0.7s;}
+  /* 415c bar segments by type */
+  .seg-415-pre  {height:100%;background:linear-gradient(90deg,#1e40af,#3b82f6);transition:width 0.7s;}
+  .seg-415-roth {height:100%;background:linear-gradient(90deg,#065f46,#10b981);transition:width 0.7s;}
+  .seg-415-match{height:100%;background:linear-gradient(90deg,#c9a84c,#e8c96a);transition:width 0.7s;}
+  .seg-415-at   {height:100%;background:linear-gradient(90deg,#6b21a8,#a855f7);transition:width 0.7s;}
+  .bar-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:4px;font-size:0.68rem;color:var(--muted);}
+  .bar-legend span{display:flex;align-items:center;gap:4px;}
+  .sw{display:inline-block;width:10px;height:7px;border-radius:2px;flex-shrink:0;}
+  .trueup{background:white;border:1.5px solid var(--gold);border-radius:10px;padding:16px 20px;margin-bottom:22px;}
+  .trueup h4{font-family:'DM Serif Display',serif;font-size:1rem;color:var(--navy);margin-bottom:7px;}
+  .trueup p{font-size:0.81rem;color:var(--muted);line-height:1.6;}
+  .trueup .ta{font-family:'DM Serif Display',serif;font-size:1.6rem;color:#b8860b;margin:5px 0 8px;}
+  .tbl-sec{margin-bottom:22px;}
+  .tbl-sec h3{font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--navy);margin-bottom:11px;}
+  .tbl-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border);box-shadow:var(--shadow);}
+  table{width:100%;border-collapse:collapse;background:white;font-size:0.79rem;}
+  thead tr{background:var(--navy);color:white;}
+  thead th{padding:10px 12px;text-align:right;font-weight:500;white-space:nowrap;font-size:0.74rem;letter-spacing:0.3px;}
+  thead th:first-child{text-align:left;}
+  tbody tr{border-bottom:1px solid var(--border);transition:background 0.12s;}
+  tbody tr:hover{background:#f8f9fb;}
+  tbody tr.pr{background:#f4f5f8;color:#8899aa;}
+  tbody tr.pr:hover{background:#eceef2;}
+  tbody td{padding:7px 12px;text-align:right;}
+  tbody td:first-child{text-align:left;font-weight:500;}
+  tbody tr.tot{background:var(--navy);color:white;font-weight:600;}
+  tbody tr.tot td{padding:10px 12px;}
+  .pl{font-size:0.67rem;background:#dde3ec;color:#8899aa;padding:1px 5px;border-radius:3px;margin-left:5px;vertical-align:middle;}
+  .fl{font-size:0.67rem;background:var(--green-light);color:var(--green);padding:1px 5px;border-radius:3px;margin-left:5px;vertical-align:middle;}
+  .foot{display:flex;justify-content:flex-end;gap:10px;margin-top:10px;}
+  .btn{padding:8px 18px;border-radius:7px;font-family:'DM Sans',sans-serif;font-size:0.81rem;cursor:pointer;border:1.5px solid var(--border);background:white;color:var(--navy);transition:all 0.18s;}
+  .btn:hover{border-color:var(--gold);background:var(--gold-pale);}
+  .btn.pri{background:var(--navy);color:white;border-color:var(--navy);}
+  .btn.pri:hover{background:var(--navy-light);border-color:var(--gold);}
+  .whatif-wrap{margin-bottom:22px;}
+  input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+  @media print{.whatif-wrap{display:none!important;}}
+  @media print{
+    *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+    body{background:white;}
+    header{padding:16px 24px;border-bottom:3px solid #c9a84c;}
+    .panel-left,.limits-bar,.foot{display:none!important;}
+    .layout{display:block;}
+    .panel-right{padding:16px 24px;background:white;}
+    /* Force all gradient/colored segments to print */
+    .prog-track,.prog-track-split{height:11px!important;border:1px solid #dde3ec;}
+    .prog-fill,.seg-pretax,.seg-pretax-cu,.seg-roth,.seg-roth-cu,
+    .seg-match,.seg-trueup,.seg-at,
+    .seg-415-pre,.seg-415-roth,.seg-415-match,.seg-415-at{height:11px!important;}
+    .seg-pretax   {background:#3b82f6!important;}
+    .seg-pretax-cu{background:repeating-linear-gradient(60deg,#3b82f6,#3b82f6 3px,#bfdbfe 3px,#bfdbfe 6px)!important;}
+    .seg-roth     {background:#10b981!important;}
+    .seg-roth-cu  {background:repeating-linear-gradient(60deg,#10b981,#10b981 3px,#a7f3d0 3px,#a7f3d0 6px)!important;}
+    .seg-match    {background:#e8c96a!important;}
+    .seg-trueup   {background:repeating-linear-gradient(60deg,#e8c96a,#e8c96a 3px,#fff8dc 3px,#fff8dc 6px)!important;}
+    .seg-at       {background:#a855f7!important;}
+    .seg-415-pre  {background:#3b82f6!important;}
+    .seg-415-roth {background:#10b981!important;}
+    .seg-415-match{background:#e8c96a!important;}
+    .seg-415-at   {background:#a855f7!important;}
+    .f-blue  {background:#3b82f6!important;}
+    .f-green {background:#10b981!important;}
+    .f-gold  {background:#e8c96a!important;}
+    .f-purple{background:#a855f7!important;}
+    /* Alerts and rec box */
+    .alert,.rec-box,.trueup{border:1px solid #dde3ec;box-shadow:none;}
+    .a-warn {background:#fff8e1!important;border-left:4px solid #c9a84c!important;}
+    .a-super{background:#fdf0ff!important;border-left:4px solid #9b59b6!important;}
+    /* Table */
+    tbody tr.tot{background:#0f1e35!important;color:white!important;}
+    tbody tr.pr {background:#f4f5f8!important;}
+    thead tr    {background:#0f1e35!important;}
+    /* Swatch squares in legends */
+    .sw{border:1px solid #ccc;}
+    /* Page breaks */
+    .lim-sec,.tbl-sec,.trueup{page-break-inside:avoid;}
+    .tbl-wrap{overflow:visible;}
+    table{font-size:0.72rem;}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div><h1>401(k) <span>Contribution Planner</span></h1></div>
+</header>
+<div class="limits-bar">
+  <span>Pre-Tax + Roth Limit: <strong>$24,500</strong></span>
+  <span>Catch-Up (Age 50–59, 64+): <strong>+$8,000</strong></span>
+  <span>Super Catch-Up (Age 60–63): <strong>+$11,250</strong></span>
+  <span>Annual Additions / 415(c): <strong>$72,000</strong></span>
+  <span>Employer Match: <strong>Dollar-for-dollar up to 5%</strong></span>
+  <span>Eligible Wage Cap (§401(a)(17)): <strong>$360,000</strong></span>
+</div>
+<div class="layout">
+  <!-- LEFT PANEL -->
+  <div class="panel-left">
+    <div class="section-title">Your Profile</div>
+    <div class="input-row">
+      <div class="form-group">
+        <label>Your Age</label>
+        <input type="number" id="age" min="18" max="80" placeholder="e.g. 52" oninput="updateCUBadge()">
+        <div class="hint">Enter your age as of December 31, 2026 — this determines catch-up eligibility for the full year</div>
+      </div>
+      <div class="form-group">
+        <label>Est. Annual Gross ($)</label>
+        <input type="number" id="gross" placeholder="e.g. 85000" min="0">
+        <div class="hint">Bonuses &amp; merit increases may shift mid-year</div>
+      </div>
+    </div>
+    <div id="cuBadge"></div>
+    <div class="section-title sec-gap">Pay Period Status</div>
+    <div class="input-row">
+      <div class="form-group">
+        <label>Pay Periods Completed</label>
+        <input type="number" id="ppDone" value="0" min="0" max="26" oninput="updatePP()">
+        <div class="hint">Enter 0 if the year hasn't started</div>
+      </div>
+      <div class="form-group">
+        <label>Pay Periods Remaining</label>
+        <input type="number" id="ppLeft" class="ro" readonly tabindex="-1">
+        <div class="hint">Auto-calculated · bi-weekly · 26 periods/year</div>
+      </div>
+    </div>
+    <div class="section-title sec-gap">Year-to-Date Contributions</div>
+    <div class="ytd-note">Enter contribution amounts already made for 2026. Leave blank or enter 0 if none yet.</div>
+    <div class="input-row">
+      <div class="form-group">
+        <label>Pre-Tax YTD ($)</label>
+        <input type="number" id="ytdPre" placeholder="0" min="0" oninput="checkYTD()">
+      </div>
+      <div class="form-group">
+        <label>Roth YTD ($)</label>
+        <input type="number" id="ytdRoth" placeholder="0" min="0" oninput="checkYTD()">
+      </div>
+    </div>
+    <div class="input-row">
+      <div class="form-group">
+        <label>After-Tax YTD ($)</label>
+        <input type="number" id="ytdAT" placeholder="0" min="0" oninput="checkYTD()">
+      </div>
+      <div class="form-group">
+        <label>Employer Match YTD ($)</label>
+        <input type="number" id="ytdMatch" placeholder="0" min="0" oninput="checkYTD()">
+      </div>
+    </div>
+    <div id="ytdError" style="display:none;margin-top:6px;padding:7px 11px;background:#fff8e1;border-left:3px solid #f59e0b;border-radius:6px;font-size:0.75rem;color:#92400e;">
+      ⚠️ You've entered year-to-date contributions but <strong>Pay Periods Completed is 0</strong>. Please update it to reflect how many pay periods have passed.
+    </div>
+    <div class="section-title sec-gap">Savings Goal</div>
+    <div class="hint" style="margin-bottom:10px">Select one or more goals. "Maximize Employer Match" can be combined with either tax goal.</div>
+    <div class="goal-grid">
+      <button class="goal-btn" data-goal="today" onclick="toggleGoal('today')">Reduce<br>Taxes Today</button>
+      <button class="goal-btn" data-goal="later" onclick="toggleGoal('later')">Reduce<br>Taxes Later</button>
+      <button class="goal-btn" data-goal="match" onclick="toggleGoal('match')" style="grid-column:span 2">Maximize Employer Match<br><span style="font-size:0.69rem;opacity:0.75">Combinable with Reduce Taxes Today or Later</span></button>
+      <button class="goal-btn" data-goal="all" onclick="toggleGoal('all')" style="grid-column:span 2">Maximize Total Savings<br><span style="font-size:0.69rem;opacity:0.75">Fills elective limit + after-tax up to 415(c)</span></button>
+    </div>
+    <button class="calc-btn" onclick="calculate()">Calculate My Plan →</button>
+  </div>
+  <!-- RIGHT PANEL -->
+  <div class="panel-right" id="out">
+    <div class="placeholder">
+      <div class="ico">📊</div>
+      <p>Complete the fields on the left and click <strong>Calculate My Plan</strong> to see your personalized 2026 contribution strategy.</p>
+      <ul>
+        <li>Recommended contribution percentages</li>
+        <li>Per pay-period breakdown (past &amp; projected)</li>
+        <li>IRS limit progress bars</li>
+        <li>Employer match &amp; true-up estimate</li>
+        <li>After-tax / 415(c) opportunity</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// 2026 IRS LIMITS
+// ─────────────────────────────────────────────────────────────────────────────
+const L = {
+  base:     24500,  // shared pre-tax + roth elective base
+  catchUp:   8000,  // ages 50-59, 64+
+  superCU:  11250,  // ages 60-63
+  ann:      72000,  // 415(c) annual additions limit
+  matchPct:  0.04,  // employer match rate
+  wageCap:  360000  // IRC 401(a)(17)
+};
+const PP = 26; // bi-weekly pay periods
+
+const goals = new Set();
+const $  = id => document.getElementById(id);
+const nv = id => parseFloat($(id).value) || 0;
+const fmt = n => '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+const sw  = bg => `<span class="sw" style="background:${bg}"></span>`;
+
+// ── UI helpers ────────────────────────────────────────────────────────────────
+function toggleGoal(g) {
+  if (g === 'all') {
+    goals.has('all') ? goals.clear() : (goals.clear(), goals.add('all'));
+  } else if (g === 'today') {
+    goals.delete('all');
+    goals.has('today') ? goals.delete('today') : (goals.delete('later'), goals.add('today'));
+  } else if (g === 'later') {
+    goals.delete('all');
+    goals.has('later') ? goals.delete('later') : (goals.delete('today'), goals.add('later'));
+  } else if (g === 'match') {
+    goals.delete('all');
+    goals.has('match') ? goals.delete('match') : goals.add('match');
+  }
+  document.querySelectorAll('.goal-btn').forEach(b => b.classList.toggle('active', goals.has(b.dataset.goal)));
+}
+
+function updateCUBadge() {
+  $('cuBadge').innerHTML = '';
+}
+
+function updatePP() {
+  const done = Math.min(Math.max(parseInt($('ppDone').value)||0, 0), PP);
+  const left = PP - done;
+  $('ppLeft').value = left;
+  checkYTD();
+}
+
+function checkYTD() {
+  const ppDone = parseInt($('ppDone').value) || 0;
+  const hasYTD = nv('ytdPre') > 0 || nv('ytdRoth') > 0 || nv('ytdAT') > 0 || nv('ytdMatch') > 0;
+  $('ytdError').style.display = (hasYTD && ppDone === 0) ? 'block' : 'none';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN CALCULATION
+// ─────────────────────────────────────────────────────────────────────────────
+function calculate() {
+  const age    = parseInt($('age').value) || 0;
+  const gross  = nv('gross');
+  const ppDone = Math.min(Math.max(parseInt($('ppDone').value)||0, 0), PP);
+  const ppLeft = PP - ppDone;
+  const ytdPre   = nv('ytdPre');
+  const ytdRoth  = nv('ytdRoth');
+  const ytdAT    = nv('ytdAT');
+  const ytdMatch = nv('ytdMatch');
+
+  if (!age || !gross || goals.size === 0) {
+    alert('Please enter your age, estimated annual gross wages, and select at least one savings goal.'); return;
+  }
+  if (age < 18 || age > 80) { alert('Please enter a valid age (18–80).'); return; }
+
+  const hasYTD = ytdPre > 0 || ytdRoth > 0 || ytdAT > 0 || ytdMatch > 0;
+  if (hasYTD && ppDone === 0) {
+    $('ytdError').style.display = 'block';
+    $('ytdError').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  // ── Limits ──────────────────────────────────────────────────────────────────
+  const wageCapped = gross > L.wageCap;
+  const eligGross  = Math.min(gross, L.wageCap);
+  const isSuper    = age >= 60 && age <= 63;
+  const isCU       = age >= 50;
+  const cuAmt      = isSuper ? L.superCU : (isCU ? L.catchUp : 0);
+  const electLim   = L.base + cuAmt;          // total elective deferral limit
+  const annLim     = isSuper ? L.ann + L.superCU : L.ann; // 415c
+  const maxMatch   = eligGross * L.matchPct;
+  const ppGross    = gross    / PP;
+  const ppElig     = eligGross / PP;
+
+  // ── Age strategy ─────────────────────────────────────────────────────────────
+  // Under 40 → Roth-first | 40-54 → 50/50 split | 55+ → Pre-Tax first
+  const strat = age < 40 ? 'roth' : age < 55 ? 'split' : 'pretax';
+  const stratLabel = age < 40
+    ? 'Roth-first (long time horizon — tax-free growth compounds longer)'
+    : age < 55 ? '50/50 Pre-Tax & Roth split (balanced tax diversification)'
+    : 'Pre-Tax first (peak earning years — reduce taxable income now)';
+
+  const wantsToday = goals.has('today');
+  const wantsLater = goals.has('later');
+  const wantsMatch = goals.has('match');
+  const wantsAll   = goals.has('all');
+
+  // ── Determine annual contribution targets ────────────────────────────────────
+  let tgtPre = 0, tgtRoth = 0, tgtAT = 0;
+
+  if (wantsToday) {
+    tgtPre = electLim; tgtRoth = 0;
+  } else if (wantsLater) {
+    tgtPre = 0; tgtRoth = electLim;
+  } else if (wantsAll) {
+    // Age-based pre/roth split for elective — same strategy as other goals
+    if (strat === 'roth')   { tgtPre = 0;              tgtRoth = electLim; }
+    else if (strat === 'pretax') { tgtPre = electLim;  tgtRoth = 0; }
+    else                    { tgtPre = electLim / 2;   tgtRoth = electLim / 2; }
+    tgtAT = Math.max(0, annLim - electLim - maxMatch);
+  } else if (wantsMatch) {
+    const matchTarget = eligGross * L.matchPct;
+    if (strat === 'pretax') { tgtPre = matchTarget; tgtRoth = 0; }
+    else if (strat === 'roth') { tgtPre = 0; tgtRoth = matchTarget; }
+    else { tgtPre = matchTarget / 2; tgtRoth = matchTarget / 2; }
+  }
+
+  // ── Whole-number election rates (ceil) ──────────────────────────────────────
+  // Ceil ensures the participant always meets or slightly exceeds the target.
+  // The plan stops contributions automatically when IRS limits are reached.
+  // One rate per type, set once at the start of the year — no mid-year changes.
+  const remPre  = Math.max(0, tgtPre  - ytdPre);
+  const remRoth = Math.max(0, tgtRoth - ytdRoth);
+  const remAT   = Math.max(0, tgtAT   - ytdAT);
+
+  const dPre  = ppLeft > 0 && ppGross > 0 ? Math.min(75, Math.ceil(remPre  / ppLeft / ppGross * 100)) : 0;
+  const dRoth = ppLeft > 0 && ppGross > 0 ? Math.min(75, Math.ceil(remRoth / ppLeft / ppGross * 100)) : 0;
+  const dAT   = ppLeft > 0 && ppGross > 0 && tgtAT > 0 ? Math.min(75, Math.ceil(remAT / ppLeft / ppGross * 100)) : 0;
+
+  const ppWantPre  = ppGross * dPre  / 100;
+  const ppWantRoth = ppGross * dRoth / 100;
+  const ppWantAT   = ppGross * dAT   / 100;
+
+  // ── Per-period simulation ────────────────────────────────────────────────────
+  // Fixed whole-number elected amounts each period; plan caps at IRS limits.
+
+  let cumPre = ytdPre, cumRoth = ytdRoth, cumAT = ytdAT, cumMatch = ytdMatch;
+  const rows = [];
+
+  if (ppDone > 0) {
+    rows.push({ label:`Periods 1–${ppDone}`, past:true,
+      pre:ytdPre, preCU:0, roth:ytdRoth, rothCU:0,
+      at:ytdAT, match:ytdMatch, gross:ppGross * ppDone });
+  }
+
+  for (let i = 1; i <= ppLeft; i++) {
+    const ppNum = ppDone + i;
+    let ppPre = 0, ppPreCU = 0, ppRoth = 0, ppRothCU = 0, ppAT = 0, ppMatch = 0;
+
+    // Step 1: Pre-tax BASE
+    const baseRoomForPre = Math.max(0, L.base - cumPre - cumRoth);
+    ppPre = Math.min(ppWantPre, baseRoomForPre, Math.max(0, tgtPre - cumPre));
+
+    // Step 2: Pre-tax CATCH-UP — activates once combined base is full
+    if (isCU && tgtPre > 0) {
+      const baseUsed = cumPre + cumRoth + ppPre;
+      if (baseUsed >= L.base - 0.01) {
+        const cuRoom    = Math.max(0, electLim - cumPre - cumRoth - ppPre);
+        const stillNeed = Math.max(0, ppWantPre - ppPre);
+        ppPreCU = Math.min(stillNeed, cuRoom, Math.max(0, tgtPre - cumPre - ppPre));
+      }
+    }
+
+    // Step 3: Roth BASE
+    const baseRoomForRoth = Math.max(0, L.base - cumPre - cumRoth - ppPre - ppPreCU);
+    ppRoth = Math.min(ppWantRoth, baseRoomForRoth, Math.max(0, tgtRoth - cumRoth));
+
+    // Step 4: Roth CATCH-UP
+    if (isCU && tgtRoth > 0) {
+      const baseUsedNow = cumPre + cumRoth + ppPre + ppPreCU + ppRoth;
+      if (baseUsedNow >= L.base - 0.01) {
+        const cuRoom    = Math.max(0, electLim - cumPre - cumRoth - ppPre - ppPreCU - ppRoth);
+        const stillNeed = Math.max(0, ppWantRoth - ppRoth);
+        ppRothCU = Math.min(stillNeed, cuRoom, Math.max(0, tgtRoth - cumRoth - ppRoth));
+      }
+    }
+
+    // Step 5: Employer match
+    const empTotal = ppPre + ppPreCU + ppRoth + ppRothCU;
+    ppMatch = Math.min(empTotal, ppElig * L.matchPct);
+    ppMatch = Math.min(ppMatch, Math.max(0, maxMatch - cumMatch));
+
+    // Step 6: After-tax — parallel with elective, capped by 415(c) room
+    if (tgtAT > 0) {
+      const room415 = Math.max(0, annLim - cumPre - cumRoth - cumAT - cumMatch
+                                         - ppPre - ppPreCU - ppRoth - ppRothCU - ppMatch);
+      ppAT = Math.min(ppWantAT, room415, Math.max(0, tgtAT - cumAT));
+    }
+
+    cumPre   += ppPre + ppPreCU;
+    cumRoth  += ppRoth + ppRothCU;
+    cumAT    += ppAT;
+    cumMatch += ppMatch;
+
+    rows.push({ label:`Period ${ppNum}`, past:false,
+      pre:ppPre, preCU:ppPreCU, roth:ppRoth, rothCU:ppRothCU,
+      at:ppAT, match:ppMatch, gross:ppGross });
+  }
+
+  // ── Year-end totals ──────────────────────────────────────────────────────────
+  const fut        = rows.filter(r => !r.past);
+  const totPre     = ytdPre   + fut.reduce((s,r) => s + r.pre   + r.preCU,  0);
+  const totPreBase = ytdPre   + fut.reduce((s,r) => s + r.pre,              0);
+  const totPreCU   =            fut.reduce((s,r) => s + r.preCU,            0);
+  const totRoth    = ytdRoth  + fut.reduce((s,r) => s + r.roth  + r.rothCU, 0);
+  const totRothBase= ytdRoth  + fut.reduce((s,r) => s + r.roth,             0);
+  const totRothCU  =            fut.reduce((s,r) => s + r.rothCU,           0);
+  const totAT      = ytdAT    + fut.reduce((s,r) => s + r.at,               0);
+  const totMatch   = ytdMatch + fut.reduce((s,r) => s + r.match,            0);
+  const totElec    = totPre + totRoth;
+  const grandTot   = totElec + totAT + totMatch;
+  const trueUp     = Math.max(0, Math.min(totElec, maxMatch) - totMatch);
+
+  // ── RENDER ───────────────────────────────────────────────────────────────────
+  let h = `<div class="res-header"><h2>Your 2026 Contribution Plan</h2></div>`;
+
+  if (ppLeft === 0) h += `<div class="alert a-warn">⚠️ All 26 pay periods are complete. Your 2026 contributions are finalized.</div>`;
+  if (wageCapped) h += `<div class="alert a-warn">⚠️ <strong>IRS Eligible Wage Cap Applied.</strong> Wages entered (${fmt(gross)}) exceed the 2026 §401(a)(17) limit. Match and limit calculations use <strong>${fmt(L.wageCap)}</strong> in eligible compensation.</div>`;
+  if (isSuper) h += `<div class="alert a-super">⭐ <strong>Super Catch-Up Eligible!</strong> Ages 60–63 get an enhanced catch-up of <strong>${fmt(cuAmt)}</strong>. Your pre-tax + Roth contribution limit is <strong>${fmt(electLim)}</strong> and 415(c) limit is <strong>${fmt(annLim)}</strong>.</div>`;
+  else if (isCU) h += `<div class="alert a-info" style="background:#f0fdf4;border-left:4px solid #10b981;padding:10px 16px;border-radius:8px;margin-bottom:16px;font-size:0.82rem;color:#065f46;">✅ <strong>Catch-Up Eligible!</strong> Age 50+ qualifies for an additional <strong>${fmt(cuAmt)}</strong> in catch-up contributions. Your pre-tax + Roth contribution limit is <strong>${fmt(electLim)}</strong>.</div>`;
+
+  function elecRowHtml(label, pct, startPP, color, bg, border) {
+    const detail = pct > 0 && startPP
+      ? `Elect <strong style="color:${color};">${pct}%</strong> starting Pay Period <strong style="color:${color};">${startPP}</strong>`
+      : `<span style="color:#bbb;font-style:italic;">0% — no election needed</span>`;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 12px;background:${bg};border-radius:7px;border-left:3px solid ${border};font-size:0.8rem;">
+      <span style="font-weight:700;color:${color};">${label}</span>
+      <span style="color:var(--muted);">${detail}</span>
+    </div>`;
+  }
+
+  const startRowsHtml = `
+    <div style="margin-bottom:14px;">
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        ${elecRowHtml('Pre-Tax',   dPre,  dPre  > 0 ? ppDone+1 : null, '#1e40af', '#eff6ff', '#3b82f6')}
+        ${elecRowHtml('Roth',      dRoth, dRoth > 0 ? ppDone+1 : null, '#065f46', '#f0fdf4', '#10b981')}
+        ${elecRowHtml('After-Tax', dAT,   dAT   > 0 ? ppDone+1 : null, '#6b21a8', '#faf5ff', '#a855f7')}
+      </div>
+    </div>`;
+
+  let ctxNote = '';
+  if (wantsToday) ctxNote = `Pre-tax contributions reduce your taxable income today. This plan fills your ${fmt(electLim)} pre-tax + Roth contribution limit for 2026${isCU ? `, including ${fmt(cuAmt)} in ${isSuper?'super ':''}catch-up contributions` : ''}.`;
+  else if (wantsLater) ctxNote = `Roth contributions grow tax-free. This plan fills your ${fmt(electLim)} pre-tax + Roth contribution limit for 2026${isCU ? `, including ${fmt(cuAmt)} in ${isSuper?'super ':''}catch-up contributions` : ''}.`;
+  else if (wantsAll) {
+    const splitDesc = strat === 'roth' ? 'all Roth (long time horizon — tax-free growth)' : strat === 'pretax' ? 'all Pre-Tax (peak earning years — reduce taxable income now)' : '50/50 Pre-Tax & Roth split (balanced tax diversification)';
+    ctxNote = `This plan fills your full ${fmt(electLim)} pre-tax + Roth contribution limit${isCU ? ` (including ${fmt(cuAmt)} ${isSuper?'super ':''}catch-up)` : ''} as ${splitDesc}${dAT > 0 ? `, plus after-tax contributions to reach the ${fmt(annLim)} 415(c) limit` : ''}.`;
+  }
+  else if (wantsMatch) ctxNote = `Contributing ${dPre + dRoth}% secures your full dollar-for-dollar employer match of ${fmt(maxMatch)} for 2026.`;
+
+  const cuNote = '';
+
+  const megaNote = dAT > 0 ? `<div style="margin-top:10px;padding:8px 12px;background:#faf5ff;border-left:3px solid #a855f7;border-radius:7px;font-size:0.79rem;color:#4c1d95;">
+    💜 <strong>Mega Backdoor Roth opportunity:</strong> Consider converting after-tax contributions to Roth via a Roth In-Plan Conversion.
+  </div>` : '';
+
+  h += `<div class="rec-box">
+    <h3>Recommended Contribution Rates</h3>
+    ${startRowsHtml}
+    <div class="rec-note">
+      ${ctxNote ? `<div style="margin-bottom:9px;">${ctxNote}</div>` : ''}Percentages are of your estimated per-period gross wages of <strong>${fmt(ppGross)}</strong> (${fmt(gross)} ÷ 26 pay periods). Your plan will stop contributions automatically once IRS limits are reached.${(dPre >= 75 || dRoth >= 75 || dAT >= 75) ? ' <strong>Note:</strong> your plan limits each contribution type to a maximum of 75% of gross pay per period.' : ''}
+      ${ppDone > 0 ? ` Your <strong>${fmt(ytdPre+ytdRoth)}</strong> in pre-tax and Roth contributions to date has been factored into the remaining period calculations.` : ''}
+    </div>
+    ${megaNote}
+  </div>`;
+
+  // ── Build initial lim + table ──────────────────────────────────────────────
+  const initTotals = {
+    totPreBase, totPreCU, totRothBase, totRothCU,
+    totPre, totRoth, totElec, totMatch, totAT, grandTot, trueUp,
+    rows, wageCapped, eligGross, gross, electLim, annLim, maxMatch, isSuper
+  };
+  const initHtml = buildDynamicHtml(initTotals);
+  h += `<div id="limContainer">${initHtml.limHtml}</div>`;
+
+  // ── What-If Explorer ───────────────────────────────────────────────────────
+  const wiFields = [
+    {idPct:'wiPre',  idPP:'wiPrePP',  label:'Pre-Tax',   val:dPre,  pp:ppDone+1, color:'#1e40af', bg:'#eff6ff', border:'#3b82f6'},
+    {idPct:'wiRoth', idPP:'wiRothPP', label:'Roth',      val:dRoth, pp:ppDone+1, color:'#065f46', bg:'#f0fdf4', border:'#10b981'},
+    {idPct:'wiAT',   idPP:'wiATPP',   label:'After-Tax', val:dAT,   pp:ppDone+1, color:'#6b21a8', bg:'#faf5ff', border:'#a855f7'},
+  ];
+  const wiRowsHtml = wiFields.map(function(wf) {
+    return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 13px;background:' + wf.bg + ';border-radius:8px;border-left:3px solid ' + wf.border + ';">'
+      + '<div>'
+      + '<label style="display:block;font-size:0.69rem;font-weight:700;color:' + wf.color + ';text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">' + wf.label + ' %</label>'
+      + '<div style="display:flex;align-items:center;gap:5px;">'
+      + '<input type="number" id="' + wf.idPct + '" value="' + wf.val + '" min="0" max="75" step="1" oninput="runWhatIf()" style="width:100%;padding:6px 8px;border:1.5px solid ' + wf.border + ';border-radius:6px;font-size:0.95rem;font-weight:700;color:' + wf.color + ';background:white;outline:none;-moz-appearance:textfield;">'
+      + '<span style="font-size:0.82rem;color:' + wf.color + ';font-weight:600;">%</span>'
+      + '</div></div>'
+      + '<div>'
+      + '<label style="display:block;font-size:0.69rem;font-weight:700;color:' + wf.color + ';text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">Start Pay Period</label>'
+      + '<input type="number" id="' + wf.idPP + '" value="' + wf.pp + '" min="1" max="26" step="1" oninput="runWhatIf()" style="width:100%;padding:6px 8px;border:1.5px solid ' + wf.border + ';border-radius:6px;font-size:0.95rem;font-weight:700;color:' + wf.color + ';background:white;outline:none;-moz-appearance:textfield;">'
+      + '</div></div>';
+  }).join('');
+
+  h += `<div class="rec-box" id="whatifWrap"
+      data-ppgross="${ppGross.toFixed(4)}"
+      data-ppelig="${ppElig.toFixed(4)}"
+      data-ppleft="${ppLeft}"
+      data-ppdone="${ppDone}"
+      data-electlim="${electLim}"
+      data-annlim="${annLim}"
+      data-maxmatch="${maxMatch.toFixed(4)}"
+      data-matchpct="${L.matchPct}"
+      data-iscu="${isCU ? 1 : 0}"
+      data-issuper="${isSuper ? 1 : 0}"
+      data-lbase="${L.base}"
+      data-wagecapped="${wageCapped ? 1 : 0}"
+      data-eliggross="${eligGross.toFixed(4)}"
+      data-gross="${gross}"
+      data-ytdelec="${(ytdPre+ytdRoth).toFixed(4)}"
+      data-ytdat="${ytdAT.toFixed(4)}"
+      data-ytdmatch="${ytdMatch.toFixed(4)}">
+    <h3>Explore Different Rates</h3>
+    <p style="font-size:0.78rem;color:var(--muted);margin-bottom:14px;">Adjust the rates and start periods below — IRS Limit Progress and Pay Period Breakdown update live.</p>
+    <div style="display:flex;flex-direction:column;gap:8px;">${wiRowsHtml}</div>
+  </div>`;
+
+  h += `<div id="tblContainer">${initHtml.tblHtml}</div>`;
+
+  h += `<div style="margin-top:28px;padding:14px 18px;background:#f8f9fb;border:1px solid var(--border);border-radius:9px;font-size:0.72rem;color:var(--muted);line-height:1.65;">
+    <strong style="color:var(--navy);">⚠️ Disclaimer</strong> — This tool is provided for <strong>informational and illustrative purposes only</strong> and does not constitute financial, tax, or legal advice. All figures are estimates based on the inputs you provide and the 2026 IRS limits shown. Actual contribution amounts, employer match calculations, and tax outcomes may differ based on your plan's specific rules, payroll processing, mid-year compensation changes, and other factors. Consult your plan administrator, a qualified financial advisor, or a tax professional before making contribution elections or financial decisions.
+  </div>`;
+
+  h += `<div class="foot">
+    <button class="btn" onclick="resetResults()">Clear Results</button>
+    <button class="btn pri" onclick="window.print()">🖨 Print / Save as PDF</button>
+  </div>`;
+
+  $('out').innerHTML = h;
+  $('out').scrollTop = 0;
+  // Do NOT call runWhatIf() here — the initial limContainer/tblContainer are already
+  // correctly rendered from the full calculate() simulation above.
+  // runWhatIf() only fires when the user changes what-if inputs.
+}
+
+// ── Shared renderer: builds IRS Limit Progress + table from a totals object ──
+function buildDynamicHtml(t) {
+  const f   = n => '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const sw2 = bg => '<span class="sw" style="background:' + bg + '"></span>';
+
+  const totElec = t.totPre + t.totRoth;
+  const trueUp  = t.trueUp || 0;
+
+  // Elective bar percentages
+  const pPreBase  = t.totPreBase  / t.electLim * 100;
+  const pPreCU    = t.totPreCU    / t.electLim * 100;
+  const pRothBase = t.totRothBase / t.electLim * 100;
+  const pRothCU   = t.totRothCU   / t.electLim * 100;
+  const pMatch    = Math.min(t.totMatch / t.maxMatch * 100, 100);
+  const pTU       = trueUp > 0.5 ? Math.min(trueUp / t.maxMatch * 100, 100 - pMatch) : 0;
+  const atRoom    = Math.max(0, t.annLim - totElec - (trueUp > 0.5 ? t.totMatch + trueUp : t.totMatch));
+  const pATfull   = atRoom > 0 ? Math.min(t.totAT / atRoom * 100, 100) : 0;
+  const p415pre   = t.totPre   / t.annLim * 100;
+  const p415roth  = t.totRoth  / t.annLim * 100;
+  const p415match = (trueUp > 0.5 ? t.totMatch + trueUp : t.totMatch) / t.annLim * 100;
+  const p415at    = t.totAT    / t.annLim * 100;
+
+  const hasPCU = t.totPreCU  > 0.5;
+  const hasRCU = t.totRothCU > 0.5;
+  const su     = t.isSuper ? 1 : 0;
+
+  const electLegend = [
+    t.totPreBase  > 0.01 ? sw2('linear-gradient(90deg,#1e40af,#3b82f6)') + ' Pre-Tax: ' + f(t.totPreBase) : null,
+    hasPCU               ? sw2('repeating-linear-gradient(60deg,#3b82f6,#3b82f6 3px,#bfdbfe 3px,#bfdbfe 6px)') + ' Pre-Tax ' + (su ? 'Super ' : '') + 'CU: ' + f(t.totPreCU) : null,
+    t.totRothBase > 0.01 ? sw2('linear-gradient(90deg,#065f46,#10b981)') + ' Roth: ' + f(t.totRothBase) : null,
+    hasRCU               ? sw2('repeating-linear-gradient(60deg,#10b981,#10b981 3px,#a7f3d0 3px,#a7f3d0 6px)') + ' Roth ' + (su ? 'Super ' : '') + 'CU: ' + f(t.totRothCU) : null,
+  ].filter(Boolean).join(' &nbsp; ');
+
+  const legend415 = [
+    t.totPre   > 0.01 ? sw2('linear-gradient(90deg,#1e40af,#3b82f6)') + ' Pre-Tax: ' + f(t.totPre) : null,
+    t.totRoth  > 0.01 ? sw2('linear-gradient(90deg,#065f46,#10b981)') + ' Roth: ' + f(t.totRoth) : null,
+    t.totMatch > 0.01 ? sw2('linear-gradient(90deg,#c9a84c,#e8c96a)') + ' Match: ' + f(trueUp > 0.5 ? t.totMatch + trueUp : t.totMatch) : null,
+    t.totAT    > 0.01 ? sw2('linear-gradient(90deg,#6b21a8,#a855f7)') + ' After-Tax: ' + f(t.totAT) : null,
+  ].filter(Boolean).join(' &nbsp; ');
+
+  const tuLegend = trueUp > 0.5
+    ? '<div class="bar-legend">' + sw2('linear-gradient(90deg,#c9a84c,#e8c96a)') + ' Received: ' + f(t.totMatch)
+      + ' &nbsp; ' + sw2('repeating-linear-gradient(60deg,#e8c96a,#e8c96a 3px,#fff8dc 3px,#fff8dc 6px)') + ' Est. True-Up: ' + f(trueUp) + '</div>'
+    : '';
+
+  
+
+  // ── IRS Limit Progress HTML ─────────────────────────────────────────────────
+  let limHtml = '<div class="lim-sec">'
+    + '<div class="section-title">IRS Limit Progress</div>'
+    + '<div class="lim-row">'
+    +   '<div class="lim-info"><span class="ln">Pre-Tax + Roth</span><span class="lv">' + f(totElec) + ' of ' + f(t.electLim) + '</span></div>'
+    +   '<div class="prog-track-split">'
+    +     '<div class="seg-pretax"    style="width:' + pPreBase  + '%"></div>'
+    +     '<div class="seg-pretax-cu" style="width:' + pPreCU    + '%"></div>'
+    +     '<div class="seg-roth"      style="width:' + pRothBase + '%"></div>'
+    +     '<div class="seg-roth-cu"   style="width:' + pRothCU   + '%"></div>'
+    +   '</div>'
+    +   '<div class="bar-legend">' + electLegend + '</div>'
+    + '</div>'
+    + '<div class="lim-row">'
+    +   '<div class="lim-info"><span class="ln">Employer Match' + (trueUp > 0.5 ? ' <span style="font-size:0.68rem;color:var(--gold);font-weight:600">(incl. est. true-up)</span>' : '') + '</span><span class="lv">' + f(trueUp > 0.5 ? t.totMatch + trueUp : t.totMatch) + ' of ' + f(t.maxMatch) + '</span></div>'
+    +   '<div class="prog-track-split"><div class="seg-match" style="width:' + pMatch + '%"></div><div class="seg-trueup" style="width:' + pTU + '%"></div></div>'
+    +   tuLegend
+    + '</div>'
+    + '<div class="lim-row">'
+    +   '<div class="lim-info"><span class="ln">After-Tax Contributions</span><span class="lv">' + f(t.totAT) + ' of ' + f(atRoom) + '</span></div>'
+    +   '<div class="prog-track"><div class="seg-at" style="width:' + pATfull + '%;height:100%;border-radius:99px;transition:width 0.4s;"></div></div>'
+    + '</div>'
+    + '<div class="lim-row">'
+    +   '<div class="lim-info"><span class="ln">Annual Additions 415(c) — Grand Total</span><span class="lv">' + f(trueUp > 0.5 ? t.grandTot + trueUp : t.grandTot) + ' of ' + f(t.annLim) + '</span></div>'
+    +   '<div class="prog-track-split">'
+    +     '<div class="seg-415-pre"   style="width:' + p415pre   + '%"></div>'
+    +     '<div class="seg-415-roth"  style="width:' + p415roth  + '%"></div>'
+    +     '<div class="seg-415-match" style="width:' + p415match + '%"></div>'
+    +     '<div class="seg-415-at"    style="width:' + p415at    + '%"></div>'
+    +   '</div>'
+    +   '<div class="bar-legend">' + legend415 + '</div>'
+    + '</div>'
+    + '</div>';
+
+  if (trueUp > 0.5) {
+    limHtml += '<div class="trueup">'
+      + '<h4>🔔 Estimated Year-End True-Up</h4>'
+      + '<div class="ta">' + f(trueUp) + '</div>'
+      + '<p>Because this plan includes a <strong>true-up provision</strong>, you may receive an additional employer match of approximately <strong>' + f(trueUp) + '</strong> after the plan year closes. True-ups occur when contributions were front- or back-loaded and the full match wasn\'t captured in-period. Typically processed in Q1 of the following year.</p>'
+      + '</div>';
+  }
+
+  // ── Pay Period Table HTML ───────────────────────────────────────────────────
+  const d = v => v > 0.01 ? f(v) : '—';
+  let tblHtml = '<div class="tbl-sec"><h3>Pay Period Contribution Breakdown</h3><div class="tbl-wrap"><table>'
+    + '<thead><tr><th>Pay Period</th><th>Gross Pay</th><th>Pre-Tax</th><th>Pre-Tax CU</th><th>Roth</th><th>Roth CU</th><th>After-Tax</th><th>Match</th><th>Total</th></tr></thead><tbody>';
+
+  t.rows.forEach(function(r) {
+    const rc  = r.past ? 'class="pr"' : '';
+    const bdg = r.past ? '<span class="pl">YTD actual</span>' : '';
+    const tot = r.pre + r.preCU + r.roth + r.rothCU + r.at + r.match;
+    tblHtml += '<tr ' + rc + '>'
+      + '<td>' + r.label + bdg + '</td>'
+      + '<td>' + f(r.gross) + '</td>'
+      + '<td>' + d(r.pre)   + '</td>'
+      + '<td>' + d(r.preCU) + '</td>'
+      + '<td>' + d(r.roth)  + '</td>'
+      + '<td>' + d(r.rothCU)+ '</td>'
+      + '<td>' + d(r.at)    + '</td>'
+      + '<td>' + d(r.match) + '</td>'
+      + '<td>' + f(tot)     + '</td>'
+      + '</tr>';
+  });
+
+  const matchCell = trueUp > 0.5
+    ? f(t.totMatch) + ' <span style="font-size:0.7rem;opacity:0.65">(+' + f(trueUp) + ' true-up)</span>'
+    : f(t.totMatch);
+  const grossCell = t.wageCapped
+    ? f(t.eligGross) + ' <span style="font-size:0.7rem;opacity:0.65">(eligible; actual ' + f(t.gross) + ')</span>'
+    : f(t.gross);
+
+  tblHtml += '<tr class="tot">'
+    + '<td>FULL YEAR TOTAL</td><td>' + grossCell + '</td>'
+    + '<td>' + f(t.totPreBase)  + '</td>'
+    + '<td>' + (t.totPreCU  > 0.01 ? f(t.totPreCU)  : '—') + '</td>'
+    + '<td>' + f(t.totRothBase) + '</td>'
+    + '<td>' + (t.totRothCU > 0.01 ? f(t.totRothCU) : '—') + '</td>'
+    + '<td>' + (t.totAT     > 0.01 ? f(t.totAT)     : '—') + '</td>'
+    + '<td>' + matchCell + '</td>'
+    + '<td>' + f(t.grandTot) + '</td>'
+    + '</tr></tbody></table></div></div>';
+
+  return { limHtml, tblHtml };
+}
+
+function runWhatIf() {
+  const wrap = $('whatifWrap');
+  const limCont = $('limContainer');
+  const tblCont = $('tblContainer');
+  if (!wrap || !limCont || !tblCont) return;
+
+  const d        = wrap.dataset;
+  const ppGross  = parseFloat(d.ppgross);
+  const ppElig   = parseFloat(d.ppelig);
+  const ppLeft   = parseInt(d.ppleft);
+  const ppDoneWI = parseInt(d.ppdone);
+  const electLim = parseFloat(d.electlim);
+  const annLim   = parseFloat(d.annlim);
+  const maxMatch = parseFloat(d.maxmatch);
+  const matchPct = parseFloat(d.matchpct);
+  const wageCapped = d.wagecapped === '1';
+  const eligGross  = parseFloat(d.eliggross);
+  const gross      = parseFloat(d.gross);
+  const isSuper    = d.issuper === '1';
+  const ytdElec  = parseFloat(d.ytdelec);
+  const ytdAT    = parseFloat(d.ytdat);
+  const ytdMatch = parseFloat(d.ytdmatch);
+
+  const wPre  = Math.min(75, Math.max(0, parseInt($('wiPre').value)  || 0));
+  const wRoth = Math.min(75, Math.max(0, parseInt($('wiRoth').value) || 0));
+  const wAT   = Math.min(75, Math.max(0, parseInt($('wiAT').value)   || 0));
+
+  const spPre  = Math.max(ppDoneWI + 1, Math.min(26, parseInt($('wiPrePP').value)  || ppDoneWI + 1));
+  const spRoth = Math.max(ppDoneWI + 1, Math.min(26, parseInt($('wiRothPP').value) || ppDoneWI + 1));
+  const spAT   = Math.max(ppDoneWI + 1, Math.min(26, parseInt($('wiATPP').value)   || ppDoneWI + 1));
+
+  let cumElec = ytdElec, cumPre = 0, cumRoth = 0, cumAT = ytdAT, cumMatch = ytdMatch;
+  const rows = [];
+
+  if (ppDoneWI > 0) {
+    rows.push({ label: 'Periods 1\u2013' + ppDoneWI, past: true,
+      pre: ytdElec, preCU: 0, roth: 0, rothCU: 0,
+      at: ytdAT, match: ytdMatch, gross: eligGross / 26 * ppDoneWI });
+  }
+
+  for (let pp = ppDoneWI + 1; pp <= 26; pp++) {
+    const ppPreWant  = (pp >= spPre  && wPre  > 0) ? ppGross * wPre  / 100 : 0;
+    const ppRothWant = (pp >= spRoth && wRoth > 0) ? ppGross * wRoth / 100 : 0;
+    const ppATwant   = (pp >= spAT   && wAT   > 0) ? ppGross * wAT   / 100 : 0;
+
+    // Cap elective at electLim, distribute cap proportionally between pre and roth
+    const elecRoom  = Math.max(0, electLim - cumElec);
+    const ppElecRaw = ppPreWant + ppRothWant;
+    const ppElec    = Math.min(ppElecRaw, elecRoom);
+    const ratio     = ppElecRaw > 0 ? ppElec / ppElecRaw : 0;
+    const ppPre     = ppPreWant  * ratio;
+    const ppRoth    = ppRothWant * ratio;
+
+    // Match on actual elective
+    const ppMatch = Math.min(Math.min(ppElec, ppElig * matchPct), Math.max(0, maxMatch - cumMatch));
+
+    // After-tax: only after elective is fully exhausted for the year (elective-first priority)
+    let ppAT = 0;
+    if (cumElec + ppElec >= electLim - 0.01) {
+      const atRoom415 = Math.max(0, annLim - cumElec - ppElec - cumAT - cumMatch - ppMatch);
+      ppAT = Math.min(ppATwant, atRoom415);
+    }
+
+    cumElec  += ppElec;
+    cumPre   += ppPre;
+    cumRoth  += ppRoth;
+    cumAT    += ppAT;
+    cumMatch += ppMatch;
+
+    rows.push({ label: 'Period ' + pp, past: false,
+      pre: ppPre, preCU: 0, roth: ppRoth, rothCU: 0,
+      at: ppAT, match: ppMatch, gross: ppGross });
+  }
+
+  const totPre   = cumPre   + (ppDoneWI > 0 ? ytdElec : 0);
+  const totRoth  = cumRoth;
+  const totMatch = cumMatch;
+  const totAT    = cumAT;
+  const grandTot = cumElec + totAT + totMatch;
+
+  const result = buildDynamicHtml({
+    totPreBase: totPre, totPreCU: 0, totRothBase: totRoth, totRothCU: 0,
+    totPre, totRoth, totMatch, totAT, grandTot, trueUp: 0,
+    rows, wageCapped, eligGross, gross,
+    electLim, annLim, maxMatch, isSuper, isCustom: true
+  });
+  limCont.innerHTML = result.limHtml;
+  tblCont.innerHTML = result.tblHtml;
+}
+
+function resetResults() {
+  $('out').innerHTML = `<div class="placeholder"><div class="ico">📊</div><p>Adjust your inputs and click <strong>Calculate My Plan</strong> again.</p></div>`;
+}
+
+updatePP();
+</script>
+</body>
+</html>
