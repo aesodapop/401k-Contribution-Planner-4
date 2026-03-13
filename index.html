@@ -193,12 +193,24 @@
       <div class="form-group">
         <label>Your Age</label>
         <input type="number" id="age" min="18" max="80" placeholder="e.g. 52" oninput="updateCUBadge()">
-        <div class="hint">Enter your age as of December 31, 2026 — this determines catch-up eligibility for the full year</div>
+        <div class="hint">Enter your age as of December 31, 2026 — this determines catch-up eligibility</div>
       </div>
       <div class="form-group">
         <label>Est. Annual Gross ($)</label>
         <input type="number" id="gross" placeholder="e.g. 85000" min="0">
-        <div class="hint">Bonuses &amp; merit increases may shift mid-year</div>
+        <div class="hint">Base salary only — enter bonuses below if applicable</div>
+      </div>
+    </div>
+    <div class="input-row">
+      <div class="form-group">
+        <label>April Bonus ($)</label>
+        <input type="number" id="bonusApr" placeholder="0" min="0" value="">
+        <div class="hint">Added to gross in pay period 7</div>
+      </div>
+      <div class="form-group">
+        <label>October Bonus ($)</label>
+        <input type="number" id="bonusOct" placeholder="0" min="0" value="">
+        <div class="hint">Added to gross in pay period 20</div>
       </div>
     </div>
     <div id="cuBadge"></div>
@@ -207,7 +219,7 @@
       <div class="form-group">
         <label>Pay Periods Completed</label>
         <input type="number" id="ppDone" value="0" min="0" max="26" oninput="updatePP()">
-        <div class="hint">Enter 0 if the year hasn't started</div>
+        <div class="hint">0 is default</div>
       </div>
       <div class="form-group">
         <label>Pay Periods Remaining</label>
@@ -216,7 +228,7 @@
       </div>
     </div>
     <div class="section-title sec-gap">Year-to-Date Contributions</div>
-    <div class="ytd-note">Enter contribution amounts already made for 2026. Leave blank or enter 0 if none yet.</div>
+    <div class="ytd-note">Enter contribution amounts already made for 2026 or leave this section blank if no contributions yet.</div>
     <div class="input-row">
       <div class="form-group">
         <label>Pre-Tax YTD ($)</label>
@@ -233,7 +245,7 @@
         <input type="number" id="ytdAT" placeholder="0" min="0" oninput="checkYTD()">
       </div>
       <div class="form-group">
-        <label>Employer Match YTD ($)</label>
+        <label>Match YTD ($)</label>
         <input type="number" id="ytdMatch" placeholder="0" min="0" oninput="checkYTD()">
       </div>
     </div>
@@ -243,10 +255,10 @@
     <div class="section-title sec-gap">Savings Goal</div>
     <div class="hint" style="margin-bottom:10px">Select one or more goals. "Maximize Employer Match" can be combined with either tax goal.</div>
     <div class="goal-grid">
-      <button class="goal-btn" data-goal="today" onclick="toggleGoal('today')">Reduce<br>Taxes Today</button>
-      <button class="goal-btn" data-goal="later" onclick="toggleGoal('later')">Reduce<br>Taxes Later</button>
+      <button class="goal-btn" data-goal="today" onclick="toggleGoal('today')">Reduce<br>Taxes Today<br><span style="font-size:0.69rem;opacity:0.75">Most effective if pre-tax contributions push you into a lower tax bracket</span></button>
+      <button class="goal-btn" data-goal="later" onclick="toggleGoal('later')">Reduce<br>Taxes Later<br><span style="font-size:0.69rem;opacity:0.75">Generally more suitable for those with a longer investment time horizon</span></button>
       <button class="goal-btn" data-goal="match" onclick="toggleGoal('match')" style="grid-column:span 2">Maximize Employer Match<br><span style="font-size:0.69rem;opacity:0.75">Combinable with Reduce Taxes Today or Later</span></button>
-      <button class="goal-btn" data-goal="all" onclick="toggleGoal('all')" style="grid-column:span 2">Maximize Total Savings<br><span style="font-size:0.69rem;opacity:0.75">Fills elective limit + after-tax up to 415(c)</span></button>
+      <button class="goal-btn" data-goal="all" onclick="toggleGoal('all')" style="grid-column:span 2">Maximize Total Savings<br><span style="font-size:0.69rem;opacity:0.75">Fills pre-tax and/or Roth + after-tax up to the 415(c) annual additions limit</span></button>
     </div>
     <button class="calc-btn" onclick="calculate()">Calculate My Plan →</button>
   </div>
@@ -256,7 +268,7 @@
       <div class="ico">📊</div>
       <p>Complete the fields on the left and click <strong>Calculate My Plan</strong> to see your personalized 2026 contribution strategy.</p>
       <ul>
-        <li>Recommended contribution percentages</li>
+        <li>Illustrated contribution percentages</li>
         <li>Per pay-period breakdown (past &amp; projected)</li>
         <li>IRS limit progress bars</li>
         <li>Employer match &amp; true-up estimate</li>
@@ -324,10 +336,12 @@ function checkYTD() {
 // MAIN CALCULATION
 // ─────────────────────────────────────────────────────────────────────────────
 function calculate() {
-  const age    = parseInt($('age').value) || 0;
-  const gross  = nv('gross');
-  const ppDone = Math.min(Math.max(parseInt($('ppDone').value)||0, 0), PP);
-  const ppLeft = PP - ppDone;
+  const age      = parseInt($('age').value) || 0;
+  const gross    = nv('gross');
+  const bonusApr = nv('bonusApr');
+  const bonusOct = nv('bonusOct');
+  const ppDone   = Math.min(Math.max(parseInt($('ppDone').value)||0, 0), PP);
+  const ppLeft   = PP - ppDone;
   const ytdPre   = nv('ytdPre');
   const ytdRoth  = nv('ytdRoth');
   const ytdAT    = nv('ytdAT');
@@ -345,16 +359,35 @@ function calculate() {
     return;
   }
 
+  // ── Per-period gross array (1-indexed slots 0..25) ───────────────────────────
+  // Bonus pay periods: April ≈ PP7, October ≈ PP20
+  const BONUS_APR_PP = 7;
+  const BONUS_OCT_PP = 20;
+  const basePPGross  = gross / PP;
+  const ppGrossArr   = Array.from({length: PP}, (_, i) => {
+    let pg = basePPGross;
+    if (i + 1 === BONUS_APR_PP && bonusApr > 0) pg += bonusApr;
+    if (i + 1 === BONUS_OCT_PP && bonusOct > 0) pg += bonusOct;
+    return pg;
+  });
+
+  // For display + rate calc: use future-period avg ppGross
+  const futurePPGrossArr = ppGrossArr.slice(ppDone);
+  const totalFutureGross = futurePPGrossArr.reduce((a, b) => a + b, 0);
+  const ppGross = ppLeft > 0 ? totalFutureGross / ppLeft : basePPGross;
+
+  // Total gross including bonuses (for wage cap check)
+  const totalAnnualGross = gross + bonusApr + bonusOct;
+
   // ── Limits ──────────────────────────────────────────────────────────────────
-  const wageCapped = gross > L.wageCap;
-  const eligGross  = Math.min(gross, L.wageCap);
+  const wageCapped = totalAnnualGross > L.wageCap;
+  const eligGross  = Math.min(totalAnnualGross, L.wageCap);
   const isSuper    = age >= 60 && age <= 63;
   const isCU       = age >= 50;
   const cuAmt      = isSuper ? L.superCU : (isCU ? L.catchUp : 0);
-  const electLim   = L.base + cuAmt;          // total elective deferral limit
-  const annLim     = isSuper ? L.ann + L.superCU : L.ann; // 415c
+  const electLim   = L.base + cuAmt;
+  const annLim     = isSuper ? L.ann + L.superCU : L.ann;
   const maxMatch   = eligGross * L.matchPct;
-  const ppGross    = gross    / PP;
   const ppElig     = eligGross / PP;
 
   // ── Age strategy ─────────────────────────────────────────────────────────────
@@ -384,10 +417,12 @@ function calculate() {
     else                    { tgtPre = electLim / 2;   tgtRoth = electLim / 2; }
     tgtAT = Math.max(0, annLim - electLim - maxMatch);
   } else if (wantsMatch) {
+    // Total elective capped exactly at the match threshold — no more.
+    // Age-weighted split: under 40 → all Roth | 40–54 → 60% Roth / 40% Pre-Tax | 55+ → all Pre-Tax
     const matchTarget = eligGross * L.matchPct;
-    if (strat === 'pretax') { tgtPre = matchTarget; tgtRoth = 0; }
-    else if (strat === 'roth') { tgtPre = 0; tgtRoth = matchTarget; }
-    else { tgtPre = matchTarget / 2; tgtRoth = matchTarget / 2; }
+    if      (strat === 'roth')   { tgtPre = 0;                    tgtRoth = matchTarget; }
+    else if (strat === 'pretax') { tgtPre = matchTarget;           tgtRoth = 0; }
+    else                         { tgtPre = matchTarget * 0.4;     tgtRoth = matchTarget * 0.6; }
   }
 
   // ── Whole-number election rates (ceil) ──────────────────────────────────────
@@ -406,6 +441,41 @@ function calculate() {
   const ppWantRoth = ppGross * dRoth / 100;
   const ppWantAT   = ppGross * dAT   / 100;
 
+  // ── Binary search: find effective 415(c) budget that accounts for true-up ──
+  // We need the highest budget B such that grand(B) + trueUp(B) <= annLim.
+  // Fixed-point iteration can oscillate for wage-capped salaries with AT contributions;
+  // binary search converges reliably in 60 iterations to < $0.01 precision.
+  function calcPassSim(eb) {
+    let _cumPre=ytdPre, _cumRoth=ytdRoth, _cumAT=ytdAT, _cumMatch=ytdMatch;
+    for (let i=1; i<=ppLeft; i++) {
+      const ppNum=ppDone+i;
+      const ppGrossThis=ppGrossArr[ppNum-1];
+      const ppEligThis=ppGrossThis*(eligGross/totalAnnualGross);
+      let _ppPre=0, _ppPreCU=0, _ppRoth=0, _ppRothCU=0, _ppAT=0, _ppMatch=0;
+      const r415=Math.max(0,eb-_cumPre-_cumRoth-_cumAT-_cumMatch);
+      const baseRoomForPre=Math.max(0,L.base-_cumPre-_cumRoth);
+      _ppPre=Math.min(ppGrossThis*dPre/100,baseRoomForPre,Math.max(0,tgtPre-_cumPre),r415);
+      if(isCU&&tgtPre>0){const bu=_cumPre+_cumRoth+_ppPre;if(bu>=L.base-0.01){const cr=Math.max(0,electLim-_cumPre-_cumRoth-_ppPre);_ppPreCU=Math.min(Math.max(0,ppGrossThis*dPre/100-_ppPre),cr,Math.max(0,tgtPre-_cumPre-_ppPre));}}
+      const baseRoomForRoth=Math.max(0,L.base-_cumPre-_cumRoth-_ppPre-_ppPreCU);
+      _ppRoth=Math.min(ppGrossThis*dRoth/100,baseRoomForRoth,Math.max(0,tgtRoth-_cumRoth),Math.max(0,r415-_ppPre-_ppPreCU));
+      if(isCU&&tgtRoth>0){const bu=_cumPre+_cumRoth+_ppPre+_ppPreCU+_ppRoth;if(bu>=L.base-0.01){const cr=Math.max(0,electLim-_cumPre-_cumRoth-_ppPre-_ppPreCU-_ppRoth);_ppRothCU=Math.min(Math.max(0,ppGrossThis*dRoth/100-_ppRoth),cr,Math.max(0,tgtRoth-_cumRoth-_ppRoth));}}
+      const empTotal=_ppPre+_ppPreCU+_ppRoth+_ppRothCU;
+      _ppMatch=Math.min(empTotal,ppEligThis*L.matchPct,Math.max(0,maxMatch-_cumMatch),Math.max(0,r415-empTotal));
+      const r4m=Math.max(0,r415-empTotal-_ppMatch);
+      _ppAT=tgtAT>0?Math.min(ppGrossThis*dAT/100,r4m,Math.max(0,tgtAT-_cumAT)):0;
+      _cumPre+=_ppPre+_ppPreCU; _cumRoth+=_ppRoth+_ppRothCU; _cumAT+=_ppAT; _cumMatch+=_ppMatch;
+    }
+    const elec=_cumPre+_cumRoth;
+    return elec+_cumAT+_cumMatch + Math.max(0,Math.min(elec,maxMatch)-_cumMatch);
+  }
+  let bsLo=0, bsHi=annLim;
+  for (let i=0; i<60; i++) {
+    const mid=(bsLo+bsHi)/2;
+    if(calcPassSim(mid)<=annLim+0.005) bsLo=mid; else bsHi=mid;
+    if(bsHi-bsLo<0.005) break;
+  }
+  const effectiveBudget = bsLo;
+
   // ── Per-period simulation ────────────────────────────────────────────────────
   // Fixed whole-number elected amounts each period; plan caps at IRS limits.
 
@@ -413,53 +483,61 @@ function calculate() {
   const rows = [];
 
   if (ppDone > 0) {
+    const ytdGross = ppGrossArr.slice(0, ppDone).reduce((a, b) => a + b, 0);
     rows.push({ label:`Periods 1–${ppDone}`, past:true,
       pre:ytdPre, preCU:0, roth:ytdRoth, rothCU:0,
-      at:ytdAT, match:ytdMatch, gross:ppGross * ppDone });
+      at:ytdAT, match:ytdMatch, gross:ytdGross });
   }
 
   for (let i = 1; i <= ppLeft; i++) {
-    const ppNum = ppDone + i;
+    const ppNum       = ppDone + i;
+    const ppGrossThis = ppGrossArr[ppNum - 1];          // actual gross this period
+    const ppEligThis  = ppGrossThis * (eligGross / totalAnnualGross); // proportional elig
     let ppPre = 0, ppPreCU = 0, ppRoth = 0, ppRothCU = 0, ppAT = 0, ppMatch = 0;
+
+    // Elected amounts scale with this period's actual gross
+    const ppWantPreThis  = ppGrossThis * dPre  / 100;
+    const ppWantRothThis = ppGrossThis * dRoth / 100;
+    const ppWantATThis   = ppGrossThis * dAT   / 100;
 
     // Step 1: Pre-tax BASE
     const baseRoomForPre = Math.max(0, L.base - cumPre - cumRoth);
-    ppPre = Math.min(ppWantPre, baseRoomForPre, Math.max(0, tgtPre - cumPre));
+    ppPre = Math.min(ppWantPreThis, baseRoomForPre, Math.max(0, tgtPre - cumPre));
 
-    // Step 2: Pre-tax CATCH-UP — activates once combined base is full
+    // Step 2: Pre-tax CATCH-UP
     if (isCU && tgtPre > 0) {
       const baseUsed = cumPre + cumRoth + ppPre;
       if (baseUsed >= L.base - 0.01) {
         const cuRoom    = Math.max(0, electLim - cumPre - cumRoth - ppPre);
-        const stillNeed = Math.max(0, ppWantPre - ppPre);
+        const stillNeed = Math.max(0, ppWantPreThis - ppPre);
         ppPreCU = Math.min(stillNeed, cuRoom, Math.max(0, tgtPre - cumPre - ppPre));
       }
     }
 
     // Step 3: Roth BASE
     const baseRoomForRoth = Math.max(0, L.base - cumPre - cumRoth - ppPre - ppPreCU);
-    ppRoth = Math.min(ppWantRoth, baseRoomForRoth, Math.max(0, tgtRoth - cumRoth));
+    ppRoth = Math.min(ppWantRothThis, baseRoomForRoth, Math.max(0, tgtRoth - cumRoth));
 
     // Step 4: Roth CATCH-UP
     if (isCU && tgtRoth > 0) {
       const baseUsedNow = cumPre + cumRoth + ppPre + ppPreCU + ppRoth;
       if (baseUsedNow >= L.base - 0.01) {
         const cuRoom    = Math.max(0, electLim - cumPre - cumRoth - ppPre - ppPreCU - ppRoth);
-        const stillNeed = Math.max(0, ppWantRoth - ppRoth);
+        const stillNeed = Math.max(0, ppWantRothThis - ppRoth);
         ppRothCU = Math.min(stillNeed, cuRoom, Math.max(0, tgtRoth - cumRoth - ppRoth));
       }
     }
 
-    // Step 5: Employer match
+    // Step 5: Employer match (based on this period's eligible gross)
     const empTotal = ppPre + ppPreCU + ppRoth + ppRothCU;
-    ppMatch = Math.min(empTotal, ppElig * L.matchPct);
+    ppMatch = Math.min(empTotal, ppEligThis * L.matchPct);
     ppMatch = Math.min(ppMatch, Math.max(0, maxMatch - cumMatch));
 
-    // Step 6: After-tax — parallel with elective, capped by 415(c) room
+    // Step 6: After-tax — use effectiveBudget (annLim minus true-up reserve) as ceiling
     if (tgtAT > 0) {
-      const room415 = Math.max(0, annLim - cumPre - cumRoth - cumAT - cumMatch
-                                         - ppPre - ppPreCU - ppRoth - ppRothCU - ppMatch);
-      ppAT = Math.min(ppWantAT, room415, Math.max(0, tgtAT - cumAT));
+      const room415 = Math.max(0, effectiveBudget - cumPre - cumRoth - cumAT - cumMatch
+                                                  - ppPre - ppPreCU - ppRoth - ppRothCU - ppMatch);
+      ppAT = Math.min(ppWantATThis, room415, Math.max(0, tgtAT - cumAT));
     }
 
     cumPre   += ppPre + ppPreCU;
@@ -467,9 +545,10 @@ function calculate() {
     cumAT    += ppAT;
     cumMatch += ppMatch;
 
+    const isBonus = (ppNum === BONUS_APR_PP && bonusApr > 0) || (ppNum === BONUS_OCT_PP && bonusOct > 0);
     rows.push({ label:`Period ${ppNum}`, past:false,
       pre:ppPre, preCU:ppPreCU, roth:ppRoth, rothCU:ppRothCU,
-      at:ppAT, match:ppMatch, gross:ppGross });
+      at:ppAT, match:ppMatch, gross:ppGrossThis, isBonus });
   }
 
   // ── Year-end totals ──────────────────────────────────────────────────────────
@@ -494,49 +573,18 @@ function calculate() {
   if (isSuper) h += `<div class="alert a-super">⭐ <strong>Super Catch-Up Eligible!</strong> Ages 60–63 get an enhanced catch-up of <strong>${fmt(cuAmt)}</strong>. Your pre-tax + Roth contribution limit is <strong>${fmt(electLim)}</strong> and 415(c) limit is <strong>${fmt(annLim)}</strong>.</div>`;
   else if (isCU) h += `<div class="alert a-info" style="background:#f0fdf4;border-left:4px solid #10b981;padding:10px 16px;border-radius:8px;margin-bottom:16px;font-size:0.82rem;color:#065f46;">✅ <strong>Catch-Up Eligible!</strong> Age 50+ qualifies for an additional <strong>${fmt(cuAmt)}</strong> in catch-up contributions. Your pre-tax + Roth contribution limit is <strong>${fmt(electLim)}</strong>.</div>`;
 
-  function elecRowHtml(label, pct, startPP, color, bg, border) {
-    const detail = pct > 0 && startPP
-      ? `Elect <strong style="color:${color};">${pct}%</strong> starting Pay Period <strong style="color:${color};">${startPP}</strong>`
-      : `<span style="color:#bbb;font-style:italic;">0% — no election needed</span>`;
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 12px;background:${bg};border-radius:7px;border-left:3px solid ${border};font-size:0.8rem;">
-      <span style="font-weight:700;color:${color};">${label}</span>
-      <span style="color:var(--muted);">${detail}</span>
-    </div>`;
-  }
-
-  const startRowsHtml = `
-    <div style="margin-bottom:14px;">
-      <div style="display:flex;flex-direction:column;gap:5px;">
-        ${elecRowHtml('Pre-Tax',   dPre,  dPre  > 0 ? ppDone+1 : null, '#1e40af', '#eff6ff', '#3b82f6')}
-        ${elecRowHtml('Roth',      dRoth, dRoth > 0 ? ppDone+1 : null, '#065f46', '#f0fdf4', '#10b981')}
-        ${elecRowHtml('After-Tax', dAT,   dAT   > 0 ? ppDone+1 : null, '#6b21a8', '#faf5ff', '#a855f7')}
-      </div>
-    </div>`;
-
   let ctxNote = '';
-  if (wantsToday) ctxNote = `Pre-tax contributions reduce your taxable income today. This plan fills your ${fmt(electLim)} pre-tax + Roth contribution limit for 2026${isCU ? `, including ${fmt(cuAmt)} in ${isSuper?'super ':''}catch-up contributions` : ''}.`;
-  else if (wantsLater) ctxNote = `Roth contributions grow tax-free. This plan fills your ${fmt(electLim)} pre-tax + Roth contribution limit for 2026${isCU ? `, including ${fmt(cuAmt)} in ${isSuper?'super ':''}catch-up contributions` : ''}.`;
+  if (wantsToday) ctxNote = `Pre-tax contributions may help reduce your taxable income. Based on your inputs, this illustration targets your ${fmt(electLim)} pre-tax + Roth contribution limit for 2026${isCU ? `, including ${fmt(cuAmt)} in ${isSuper?'super ':''}catch-up contributions` : ''}.`;
+  else if (wantsLater) ctxNote = `Roth contributions grow tax-free in retirement. Based on your inputs, this illustration targets your ${fmt(electLim)} pre-tax + Roth contribution limit for 2026${isCU ? `, including ${fmt(cuAmt)} in ${isSuper?'super ':''}catch-up contributions` : ''}.`;
   else if (wantsAll) {
     const splitDesc = strat === 'roth' ? 'all Roth (long time horizon — tax-free growth)' : strat === 'pretax' ? 'all Pre-Tax (peak earning years — reduce taxable income now)' : '50/50 Pre-Tax & Roth split (balanced tax diversification)';
-    ctxNote = `This plan fills your full ${fmt(electLim)} pre-tax + Roth contribution limit${isCU ? ` (including ${fmt(cuAmt)} ${isSuper?'super ':''}catch-up)` : ''} as ${splitDesc}${dAT > 0 ? `, plus after-tax contributions to reach the ${fmt(annLim)} 415(c) limit` : ''}.`;
+    ctxNote = `Based on your inputs, this illustration targets your full ${fmt(electLim)} pre-tax + Roth contribution limit${isCU ? ` (including ${fmt(cuAmt)} ${isSuper?'super ':''}catch-up)` : ''} as ${splitDesc}${dAT > 0 ? `, plus after-tax contributions toward the ${fmt(annLim)} 415(c) limit` : ''}.`;
   }
-  else if (wantsMatch) ctxNote = `Contributing ${dPre + dRoth}% secures your full dollar-for-dollar employer match of ${fmt(maxMatch)} for 2026.`;
-
-  const cuNote = '';
+  else if (wantsMatch) ctxNote = `Contributing ${dPre + dRoth}% may be sufficient to receive your full employer match of ${fmt(maxMatch)} (4% of eligible compensation) for 2026. Verify the match formula with your plan documents.`;
 
   const megaNote = dAT > 0 ? `<div style="margin-top:10px;padding:8px 12px;background:#faf5ff;border-left:3px solid #a855f7;border-radius:7px;font-size:0.79rem;color:#4c1d95;">
     💜 <strong>Mega Backdoor Roth opportunity:</strong> Consider converting after-tax contributions to Roth via a Roth In-Plan Conversion.
   </div>` : '';
-
-  h += `<div class="rec-box">
-    <h3>Recommended Contribution Rates</h3>
-    ${startRowsHtml}
-    <div class="rec-note">
-      ${ctxNote ? `<div style="margin-bottom:9px;">${ctxNote}</div>` : ''}Percentages are of your estimated per-period gross wages of <strong>${fmt(ppGross)}</strong> (${fmt(gross)} ÷ 26 pay periods). Your plan will stop contributions automatically once IRS limits are reached.${(dPre >= 75 || dRoth >= 75 || dAT >= 75) ? ' <strong>Note:</strong> your plan limits each contribution type to a maximum of 75% of gross pay per period.' : ''}
-      ${ppDone > 0 ? ` Your <strong>${fmt(ytdPre+ytdRoth)}</strong> in pre-tax and Roth contributions to date has been factored into the remaining period calculations.` : ''}
-    </div>
-    ${megaNote}
-  </div>`;
 
   // ── Build initial lim + table ──────────────────────────────────────────────
   const initTotals = {
@@ -545,9 +593,10 @@ function calculate() {
     rows, wageCapped, eligGross, gross, electLim, annLim, maxMatch, isSuper
   };
   const initHtml = buildDynamicHtml(initTotals);
-  h += `<div id="limContainer">${initHtml.limHtml}</div>`;
 
-  // ── What-If Explorer ───────────────────────────────────────────────────────
+  // Order: Contribution Rates → True-Up → IRS Limit Progress → Pay Period Breakdown
+  // (whatifWrap renders first as it IS the Contribution Rates section)
+
   const wiFields = [
     {idPct:'wiPre',  idPP:'wiPrePP',  label:'Pre-Tax',   val:dPre,  pp:ppDone+1, color:'#1e40af', bg:'#eff6ff', border:'#3b82f6'},
     {idPct:'wiRoth', idPP:'wiRothPP', label:'Roth',      val:dRoth, pp:ppDone+1, color:'#065f46', bg:'#f0fdf4', border:'#10b981'},
@@ -558,17 +607,17 @@ function calculate() {
       + '<div>'
       + '<label style="display:block;font-size:0.69rem;font-weight:700;color:' + wf.color + ';text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">' + wf.label + ' %</label>'
       + '<div style="display:flex;align-items:center;gap:5px;">'
-      + '<input type="number" id="' + wf.idPct + '" value="' + wf.val + '" min="0" max="75" step="1" oninput="runWhatIf()" style="width:100%;padding:6px 8px;border:1.5px solid ' + wf.border + ';border-radius:6px;font-size:0.95rem;font-weight:700;color:' + wf.color + ';background:white;outline:none;-moz-appearance:textfield;">'
+      + '<input type="number" id="' + wf.idPct + '" value="' + wf.val + '" min="0" max="75" step="1" oninput="showWhatIfNotice()" style="width:100%;padding:6px 8px;border:1.5px solid ' + wf.border + ';border-radius:6px;font-size:0.95rem;font-weight:700;color:' + wf.color + ';background:white;outline:none;-moz-appearance:textfield;">'
       + '<span style="font-size:0.82rem;color:' + wf.color + ';font-weight:600;">%</span>'
       + '</div></div>'
       + '<div>'
       + '<label style="display:block;font-size:0.69rem;font-weight:700;color:' + wf.color + ';text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">Start Pay Period</label>'
-      + '<input type="number" id="' + wf.idPP + '" value="' + wf.pp + '" min="1" max="26" step="1" oninput="runWhatIf()" style="width:100%;padding:6px 8px;border:1.5px solid ' + wf.border + ';border-radius:6px;font-size:0.95rem;font-weight:700;color:' + wf.color + ';background:white;outline:none;-moz-appearance:textfield;">'
+      + '<input type="number" id="' + wf.idPP + '" value="' + wf.pp + '" min="1" max="26" step="1" oninput="showWhatIfNotice()" style="width:100%;padding:6px 8px;border:1.5px solid ' + wf.border + ';border-radius:6px;font-size:0.95rem;font-weight:700;color:' + wf.color + ';background:white;outline:none;-moz-appearance:textfield;">'
       + '</div></div>';
   }).join('');
 
   h += `<div class="rec-box" id="whatifWrap"
-      data-ppgross="${ppGross.toFixed(4)}"
+      data-ppgross="${basePPGross.toFixed(4)}"
       data-ppelig="${ppElig.toFixed(4)}"
       data-ppleft="${ppLeft}"
       data-ppdone="${ppDone}"
@@ -581,19 +630,36 @@ function calculate() {
       data-lbase="${L.base}"
       data-wagecapped="${wageCapped ? 1 : 0}"
       data-eliggross="${eligGross.toFixed(4)}"
-      data-gross="${gross}"
+      data-gross="${totalAnnualGross}"
       data-ytdelec="${(ytdPre+ytdRoth).toFixed(4)}"
       data-ytdat="${ytdAT.toFixed(4)}"
-      data-ytdmatch="${ytdMatch.toFixed(4)}">
-    <h3>Explore Different Rates</h3>
-    <p style="font-size:0.78rem;color:var(--muted);margin-bottom:14px;">Adjust the rates and start periods below — IRS Limit Progress and Pay Period Breakdown update live.</p>
+      data-ytdmatch="${ytdMatch.toFixed(4)}"
+      data-ytdpre="${ytdPre.toFixed(4)}"
+      data-ytdroth="${ytdRoth.toFixed(4)}"
+      data-bonusapr="${bonusApr.toFixed(4)}"
+      data-bonusoct="${bonusOct.toFixed(4)}"
+      data-bonusaprpp="${BONUS_APR_PP}"
+      data-bonusoctpp="${BONUS_OCT_PP}">
+    <h3>Contribution Rates</h3>
+    ${ctxNote ? `<div class="rec-note" style="margin-bottom:14px;">${ctxNote}</div>` : ''}
     <div style="display:flex;flex-direction:column;gap:8px;">${wiRowsHtml}</div>
+    <div class="rec-note" style="margin-top:12px;">
+      Percentages are of your estimated per-period gross wages of <strong>${fmt(basePPGross)}</strong> (${fmt(gross)} ÷ 26 pay periods)${bonusApr > 0 || bonusOct > 0 ? ` plus any bonus amounts in their respective pay periods` : ''}. Contributions will stop automatically once IRS limits are reached. These figures are estimates only — actual results will vary based on your plan's rules and payroll processing.${(dPre >= 75 || dRoth >= 75 || dAT >= 75) ? ' <strong>Note:</strong> this illustration caps each contribution type at a maximum of 75% of gross pay per period.' : ''}
+      ${ppDone > 0 ? ` Your <strong>${fmt(ytdPre+ytdRoth)}</strong> in pre-tax and Roth contributions to date has been factored into the remaining period calculations.` : ''}
+    </div>
+    ${megaNote}
+    <div id="wiError" style="display:none;margin-top:12px;padding:8px 12px;background:#fff0f0;border-left:3px solid #e53e3e;border-radius:7px;font-size:0.76rem;color:#c0392b;line-height:1.7;"></div>
+    <div id="wiNotice" style="display:none;margin-top:12px;padding:8px 12px;background:#fff8e1;border-left:3px solid #f59e0b;border-radius:7px;font-size:0.76rem;color:#7a5c00;">⚠️ You've edited the rates or start periods above. Clicking <strong>Recalculate</strong> will use these values exactly as entered and will <strong>ignore your selected savings goal</strong>.</div>
+    <button onclick="runWhatIf()" style="margin-top:14px;width:100%;padding:10px;background:var(--navy);color:white;border:none;border-radius:8px;font-family:'DM Serif Display',serif;font-size:1rem;cursor:pointer;letter-spacing:0.3px;" onmouseover="this.style.background='var(--navy-light)'" onmouseout="this.style.background='var(--navy)'">Recalculate →</button>
   </div>`;
+
+  h += `<div id="trueUpContainer">${initHtml.trueUpHtml}</div>`;
+  h += `<div id="limContainer">${initHtml.limHtml}</div>`;
 
   h += `<div id="tblContainer">${initHtml.tblHtml}</div>`;
 
   h += `<div style="margin-top:28px;padding:14px 18px;background:#f8f9fb;border:1px solid var(--border);border-radius:9px;font-size:0.72rem;color:var(--muted);line-height:1.65;">
-    <strong style="color:var(--navy);">⚠️ Disclaimer</strong> — This tool is provided for <strong>informational and illustrative purposes only</strong> and does not constitute financial, tax, or legal advice. All figures are estimates based on the inputs you provide and the 2026 IRS limits shown. Actual contribution amounts, employer match calculations, and tax outcomes may differ based on your plan's specific rules, payroll processing, mid-year compensation changes, and other factors. Consult your plan administrator, a qualified financial advisor, or a tax professional before making contribution elections or financial decisions.
+    <strong style="color:var(--navy);">⚠️ Disclaimer</strong> — This tool is provided for <strong>informational and illustrative purposes only</strong> and does not constitute financial, tax, or legal advice. Nothing in this tool should be construed as a recommendation to make any particular contribution election or financial decision. All figures are estimates based on the inputs you provide and the 2026 IRS limits shown. Actual contribution amounts, employer match calculations, and tax outcomes may differ based on your plan's specific rules, payroll processing, mid-year compensation changes, and other factors. Tax treatment depends on individual circumstances and may change. Consult your plan administrator, a qualified financial advisor, or a tax professional before making any contribution elections or financial decisions.
   </div>`;
 
   h += `<div class="foot">
@@ -689,13 +755,14 @@ function buildDynamicHtml(t) {
     + '</div>'
     + '</div>';
 
-  if (trueUp > 0.5) {
-    limHtml += '<div class="trueup">'
+  // Extract trueup block into its own return value so caller can place it separately
+  const trueUpHtml = trueUp > 0.5
+    ? '<div class="trueup">'
       + '<h4>🔔 Estimated Year-End True-Up</h4>'
       + '<div class="ta">' + f(trueUp) + '</div>'
       + '<p>Because this plan includes a <strong>true-up provision</strong>, you may receive an additional employer match of approximately <strong>' + f(trueUp) + '</strong> after the plan year closes. True-ups occur when contributions were front- or back-loaded and the full match wasn\'t captured in-period. Typically processed in Q1 of the following year.</p>'
-      + '</div>';
-  }
+      + '</div>'
+    : '';
 
   // ── Pay Period Table HTML ───────────────────────────────────────────────────
   const d = v => v > 0.01 ? f(v) : '—';
@@ -704,7 +771,7 @@ function buildDynamicHtml(t) {
 
   t.rows.forEach(function(r) {
     const rc  = r.past ? 'class="pr"' : '';
-    const bdg = r.past ? '<span class="pl">YTD actual</span>' : '';
+    const bdg = r.past ? '<span class="pl">YTD actual</span>' : (r.isBonus ? '<span class="fl">+ bonus</span>' : '');
     const tot = r.pre + r.preCU + r.roth + r.rothCU + r.at + r.match;
     tblHtml += '<tr ' + rc + '>'
       + '<td>' + r.label + bdg + '</td>'
@@ -719,13 +786,12 @@ function buildDynamicHtml(t) {
       + '</tr>';
   });
 
-  const matchCell = trueUp > 0.5
-    ? f(t.totMatch) + ' <span style="font-size:0.7rem;opacity:0.65">(+' + f(trueUp) + ' true-up)</span>'
-    : f(t.totMatch);
+  const matchCell = f(t.totMatch);
   const grossCell = t.wageCapped
     ? f(t.eligGross) + ' <span style="font-size:0.7rem;opacity:0.65">(eligible; actual ' + f(t.gross) + ')</span>'
     : f(t.gross);
 
+  // FULL YEAR TOTAL row — in-period contributions only
   tblHtml += '<tr class="tot">'
     + '<td>FULL YEAR TOTAL</td><td>' + grossCell + '</td>'
     + '<td>' + f(t.totPreBase)  + '</td>'
@@ -735,19 +801,66 @@ function buildDynamicHtml(t) {
     + '<td>' + (t.totAT     > 0.01 ? f(t.totAT)     : '—') + '</td>'
     + '<td>' + matchCell + '</td>'
     + '<td>' + f(t.grandTot) + '</td>'
-    + '</tr></tbody></table></div></div>';
+    + '</tr>';
 
-  return { limHtml, tblHtml };
+  // EST. YEAR-END TOTAL row — adds true-up to match and grand total
+  if (trueUp > 0.5) {
+    tblHtml += '<tr style="background:#fdf6e3;color:#7a5000;font-weight:600;">'
+      + '<td style="font-size:0.74rem;">EST. YEAR-END TOTAL <span style="font-weight:400;opacity:0.7">(incl. true-up)</span></td>'
+      + '<td>' + grossCell + '</td>'
+      + '<td>' + f(t.totPreBase)  + '</td>'
+      + '<td>' + (t.totPreCU  > 0.01 ? f(t.totPreCU)  : '—') + '</td>'
+      + '<td>' + f(t.totRothBase) + '</td>'
+      + '<td>' + (t.totRothCU > 0.01 ? f(t.totRothCU) : '—') + '</td>'
+      + '<td>' + (t.totAT     > 0.01 ? f(t.totAT)     : '—') + '</td>'
+      + '<td>' + f(t.totMatch + trueUp) + '</td>'
+      + '<td>' + f(t.grandTot + trueUp) + '</td>'
+      + '</tr>';
+  }
+
+  tblHtml += '</tbody></table></div></div>';
+
+  return { limHtml, trueUpHtml, tblHtml };
+}
+
+function showWhatIfNotice() {
+  const el = $('wiNotice');
+  if (el) el.style.display = 'block';
+  // Clear any prior validation errors on input change
+  const errEl = $('wiError');
+  if (errEl) errEl.style.display = 'none';
 }
 
 function runWhatIf() {
   const wrap = $('whatifWrap');
-  const limCont = $('limContainer');
-  const tblCont = $('tblContainer');
+  const limCont    = $('limContainer');
+  const tblCont    = $('tblContainer');
+  const trueUpCont = $('trueUpContainer');
   if (!wrap || !limCont || !tblCont) return;
 
+  // ── Input validation ───────────────────────────────────────────────────────
+  const errEl = $('wiError');
+  const errors = [];
+  const rawPre  = parseInt($('wiPre').value)  || 0;
+  const rawRoth = parseInt($('wiRoth').value) || 0;
+  const rawAT   = parseInt($('wiAT').value)   || 0;
+  const rawPrePP  = parseInt($('wiPrePP').value)  || 1;
+  const rawRothPP = parseInt($('wiRothPP').value) || 1;
+  const rawATPP   = parseInt($('wiATPP').value)   || 1;
+  if (rawPre  > 75) errors.push('Pre-Tax rate cannot exceed 75%');
+  if (rawRoth > 75) errors.push('Roth rate cannot exceed 75%');
+  if (rawAT   > 75) errors.push('After-Tax rate cannot exceed 75%');
+  if (rawPrePP  < 1 || rawPrePP  > 26) errors.push('Pre-Tax start pay period must be between 1 and 26');
+  if (rawRothPP < 1 || rawRothPP > 26) errors.push('Roth start pay period must be between 1 and 26');
+  if (rawATPP   < 1 || rawATPP   > 26) errors.push('After-Tax start pay period must be between 1 and 26');
+  if (errors.length > 0) {
+    if (errEl) { errEl.innerHTML = '⚠️ ' + errors.join('<br>⚠️ '); errEl.style.display = 'block'; }
+    return;
+  }
+  if (errEl) errEl.style.display = 'none';
+
   const d        = wrap.dataset;
-  const ppGross  = parseFloat(d.ppgross);
+  const ppGross  = parseFloat(d.ppgross);   // base per-period gross (no bonus)
   const ppElig   = parseFloat(d.ppelig);
   const ppLeft   = parseInt(d.ppleft);
   const ppDoneWI = parseInt(d.ppdone);
@@ -757,11 +870,23 @@ function runWhatIf() {
   const matchPct = parseFloat(d.matchpct);
   const wageCapped = d.wagecapped === '1';
   const eligGross  = parseFloat(d.eliggross);
-  const gross      = parseFloat(d.gross);
+  const gross      = parseFloat(d.gross);   // total annual incl bonuses
   const isSuper    = d.issuper === '1';
   const ytdElec  = parseFloat(d.ytdelec);
   const ytdAT    = parseFloat(d.ytdat);
   const ytdMatch = parseFloat(d.ytdmatch);
+  const bonusApr    = parseFloat(d.bonusapr) || 0;
+  const bonusOct    = parseFloat(d.bonusoct) || 0;
+  const BONUS_APR_PP = parseInt(d.bonusaprpp);
+  const BONUS_OCT_PP = parseInt(d.bonusoctpp);
+
+  // Rebuild per-period gross array
+  const ppGrossArr = Array.from({length: 26}, (_, i) => {
+    let pg = ppGross;
+    if (i + 1 === BONUS_APR_PP && bonusApr > 0) pg += bonusApr;
+    if (i + 1 === BONUS_OCT_PP && bonusOct > 0) pg += bonusOct;
+    return pg;
+  });
 
   const wPre  = Math.min(75, Math.max(0, parseInt($('wiPre').value)  || 0));
   const wRoth = Math.min(75, Math.max(0, parseInt($('wiRoth').value) || 0));
@@ -771,37 +896,70 @@ function runWhatIf() {
   const spRoth = Math.max(ppDoneWI + 1, Math.min(26, parseInt($('wiRothPP').value) || ppDoneWI + 1));
   const spAT   = Math.max(ppDoneWI + 1, Math.min(26, parseInt($('wiATPP').value)   || ppDoneWI + 1));
 
+  // Binary search: find highest wiEffectiveBudget where grand + trueUp <= annLim.
+  // Replaces fixed-point iteration which can oscillate for wage-capped salaries.
+  function wiPassSim(eb) {
+    let _cumElec=ytdElec, _cumAT=ytdAT, _cumMatch=ytdMatch;
+    for (let pp=ppDoneWI+1; pp<=26; pp++) {
+      const g=ppGrossArr[pp-1];
+      const ppEligThis=gross>0?g*(eligGross/gross):ppElig;
+      const ppPreWant=(pp>=spPre&&wPre>0)?g*wPre/100:0;
+      const ppRothWant=(pp>=spRoth&&wRoth>0)?g*wRoth/100:0;
+      const ppATwant=(pp>=spAT&&wAT>0)?g*wAT/100:0;
+      const r415=Math.max(0,eb-_cumElec-_cumAT-_cumMatch);
+      const ppPre=Math.min(ppPreWant,Math.max(0,electLim-_cumElec),r415);
+      const ppRoth=Math.min(ppRothWant,Math.max(0,electLim-_cumElec-ppPre),Math.max(0,r415-ppPre));
+      const ppEl=ppPre+ppRoth;
+      const r4e=Math.max(0,r415-ppEl);
+      const ppMt=Math.min(Math.min(ppEl,ppEligThis*matchPct),Math.max(0,maxMatch-_cumMatch),r4e);
+      const r4m=Math.max(0,r4e-ppMt);
+      const ppAT=ppATwant>0?Math.min(ppATwant,r4m):0;
+      _cumElec+=ppEl; _cumAT+=ppAT; _cumMatch+=ppMt;
+    }
+    const tu=Math.max(0,Math.min(_cumElec,maxMatch)-_cumMatch);
+    return _cumElec+_cumAT+_cumMatch+tu;
+  }
+  let wiBsLo=0, wiBsHi=annLim;
+  for (let i=0; i<60; i++) {
+    const mid=(wiBsLo+wiBsHi)/2;
+    if(wiPassSim(mid)<=annLim+0.005) wiBsLo=mid; else wiBsHi=mid;
+    if(wiBsHi-wiBsLo<0.005) break;
+  }
+  const wiEffectiveBudget = wiBsLo;
+
   let cumElec = ytdElec, cumPre = 0, cumRoth = 0, cumAT = ytdAT, cumMatch = ytdMatch;
   const rows = [];
 
   if (ppDoneWI > 0) {
+    const ytdGross = ppGrossArr.slice(0, ppDoneWI).reduce((a, b) => a + b, 0);
     rows.push({ label: 'Periods 1\u2013' + ppDoneWI, past: true,
       pre: ytdElec, preCU: 0, roth: 0, rothCU: 0,
-      at: ytdAT, match: ytdMatch, gross: eligGross / 26 * ppDoneWI });
+      at: ytdAT, match: ytdMatch, gross: ytdGross });
   }
 
   for (let pp = ppDoneWI + 1; pp <= 26; pp++) {
-    const ppPreWant  = (pp >= spPre  && wPre  > 0) ? ppGross * wPre  / 100 : 0;
-    const ppRothWant = (pp >= spRoth && wRoth > 0) ? ppGross * wRoth / 100 : 0;
-    const ppATwant   = (pp >= spAT   && wAT   > 0) ? ppGross * wAT   / 100 : 0;
+    const ppGrossThis = ppGrossArr[pp - 1];
+    const ppEligThis  = gross > 0 ? ppGrossThis * (eligGross / gross) : ppElig;
 
-    // Cap elective at electLim, distribute cap proportionally between pre and roth
-    const elecRoom  = Math.max(0, electLim - cumElec);
-    const ppElecRaw = ppPreWant + ppRothWant;
-    const ppElec    = Math.min(ppElecRaw, elecRoom);
-    const ratio     = ppElecRaw > 0 ? ppElec / ppElecRaw : 0;
-    const ppPre     = ppPreWant  * ratio;
-    const ppRoth    = ppRothWant * ratio;
+    const ppPreWant  = (pp >= spPre  && wPre  > 0) ? ppGrossThis * wPre  / 100 : 0;
+    const ppRothWant = (pp >= spRoth && wRoth > 0) ? ppGrossThis * wRoth / 100 : 0;
+    const ppATwant   = (pp >= spAT   && wAT   > 0) ? ppGrossThis * wAT   / 100 : 0;
 
-    // Match on actual elective
-    const ppMatch = Math.min(Math.min(ppElec, ppElig * matchPct), Math.max(0, maxMatch - cumMatch));
+    const room415Before = Math.max(0, wiEffectiveBudget - cumElec - cumAT - cumMatch);
 
-    // After-tax: only after elective is fully exhausted for the year (elective-first priority)
-    let ppAT = 0;
-    if (cumElec + ppElec >= electLim - 0.01) {
-      const atRoom415 = Math.max(0, annLim - cumElec - ppElec - cumAT - cumMatch - ppMatch);
-      ppAT = Math.min(ppATwant, atRoom415);
-    }
+    const ppPre  = Math.min(ppPreWant,  Math.max(0, electLim - cumElec),         room415Before);
+    const ppRoth = Math.min(ppRothWant, Math.max(0, electLim - cumElec - ppPre), Math.max(0, room415Before - ppPre));
+    const ppElec = ppPre + ppRoth;
+
+    const room415AfterElec = Math.max(0, room415Before - ppElec);
+    const ppMatch = Math.min(
+      Math.min(ppElec, ppEligThis * matchPct),
+      Math.max(0, maxMatch - cumMatch),
+      room415AfterElec
+    );
+
+    const room415AfterMatch = Math.max(0, room415AfterElec - ppMatch);
+    const ppAT = ppATwant > 0 ? Math.min(ppATwant, room415AfterMatch) : 0;
 
     cumElec  += ppElec;
     cumPre   += ppPre;
@@ -809,23 +967,27 @@ function runWhatIf() {
     cumAT    += ppAT;
     cumMatch += ppMatch;
 
+    const isBonus = (pp === BONUS_APR_PP && bonusApr > 0) || (pp === BONUS_OCT_PP && bonusOct > 0);
     rows.push({ label: 'Period ' + pp, past: false,
       pre: ppPre, preCU: 0, roth: ppRoth, rothCU: 0,
-      at: ppAT, match: ppMatch, gross: ppGross });
+      at: ppAT, match: ppMatch, gross: ppGrossThis, isBonus });
   }
 
-  const totPre   = cumPre   + (ppDoneWI > 0 ? ytdElec : 0);
-  const totRoth  = cumRoth;
+  const totElec  = cumElec;
+  const totPre   = cumPre   + (ppDoneWI > 0 ? parseFloat(d.ytdpre  || 0) : 0);
+  const totRoth  = cumRoth  + (ppDoneWI > 0 ? parseFloat(d.ytdroth || 0) : 0);
   const totMatch = cumMatch;
   const totAT    = cumAT;
-  const grandTot = cumElec + totAT + totMatch;
+  const grandTot = totElec + totAT + totMatch;
+  const trueUp   = Math.max(0, Math.min(totElec, maxMatch) - totMatch);
 
   const result = buildDynamicHtml({
     totPreBase: totPre, totPreCU: 0, totRothBase: totRoth, totRothCU: 0,
-    totPre, totRoth, totMatch, totAT, grandTot, trueUp: 0,
+    totPre, totRoth, totElec, totMatch, totAT, grandTot, trueUp,
     rows, wageCapped, eligGross, gross,
     electLim, annLim, maxMatch, isSuper, isCustom: true
   });
+  if (trueUpCont) trueUpCont.innerHTML = result.trueUpHtml;
   limCont.innerHTML = result.limHtml;
   tblCont.innerHTML = result.tblHtml;
 }
